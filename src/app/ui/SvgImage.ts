@@ -37,6 +37,7 @@ export enum Icon {
     TOGGLE_ON,
     TOGGLE_OFF,
     SCREENPOWER,
+    ALIGNRIGHT,
 }
 
 export default class SvgImage {
