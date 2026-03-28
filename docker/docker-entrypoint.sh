@@ -24,7 +24,7 @@ if [ -n "$ADB_DEVICES" ]; then
 fi
  
 # 从文件连接
-if [ -f /usr/local/bin/adb-devices.txt ]; then
+if [ -f /ws-scrcpy/adb-devices.txt ]; then
     echo "Connecting devices from file..."
     while IFS= read -r device || [ -n "$device" ]; do
         # 跳过空行和注释
@@ -33,7 +33,7 @@ if [ -f /usr/local/bin/adb-devices.txt ]; then
         
         echo "Connecting to $device..."
         adb connect "$device"
-    done < /usr/local/bin/adb-devices.txt
+    done < /ws-scrcpy/adb-devices.txt
 fi
  
 # 显示已连接的设备
