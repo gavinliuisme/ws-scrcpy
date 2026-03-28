@@ -1,0 +1,19 @@
+version: '3.8'
+ 
+services:
+  ws-scrcpy:
+    image: ghcr.io/gavinliuisme/ws-scrcpy:latest
+    container_name: ws-scrcpy
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      # 单设备
+      - ADB_DEVICE_IP=192.168.xx.xx
+      - ADB_DEVICE_PORT=5555
+      # 或者多设备（二选一）
+      # - ADB_DEVICES=192.168.xx.xx:5555,192.168.xx.xx:5555
+    # 或者从文件读取
+    #volumes:
+    #  - /volume2/docker/ws-scrcpy/adb-devices.txt:/ws-scrcpy/adb-devices.txt
+    privileged: true
