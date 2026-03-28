@@ -16,6 +16,7 @@ import MenuSVG from '../../public/images/buttons/menu.svg';
 import ArrowBackSVG from '../../public/images/buttons/arrow_back.svg';
 import ToggleOnSVG from '../../public/images/buttons/toggle_on.svg';
 import ToggleOffSVG from '../../public/images/buttons/toggle_off.svg';
+import AlignRightSVG from '../../public/images/buttons/align_right.svg';
 
 export enum Icon {
     BACK,
@@ -78,6 +79,8 @@ export default class SvgImage {
                 return ToggleOffSVG;
             case Icon.SCREENPOWER:
                 return ScreenPowerSVG;
+            case Icon.ALIGNRIGHTSVG:
+                return AlignRightSVG;
             default:
                 return '';
         }
