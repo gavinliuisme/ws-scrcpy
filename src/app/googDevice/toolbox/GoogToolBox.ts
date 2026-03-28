@@ -92,6 +92,13 @@ export class GoogToolBox extends ToolBox {
             client.setHandleKeyboardEvents(element.checked);
         });
         elements.push(keyboard);
+        
+        const screenpowerid = `screen_power_${udid}_${playerName}_checked`;
+        const screenpower = new ToolBoxCheckbox('Screen Power', SvgImage.Icon.SETTINGS,screenpowerid);
+        screenpower.addEventListener('click', (_, el) => {
+            client.sendMessage(CommandControlMessage.createSetScreenPowerModeCommand(el.getElement().checked));
+        });
+        elements.push(screenpower);
 
         if (moreBox) {
             const displayId = player.getVideoSettings().displayId;
