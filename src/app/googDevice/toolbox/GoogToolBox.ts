@@ -100,6 +100,9 @@ export class GoogToolBox extends ToolBox {
             client.sendMessage(CommandControlMessage.createSetScreenPowerModeCommand(el.getElement().checked));
         });
         elements.push(screenpower);
+        
+        const alignright = new ToolBoxButton('Align', SvgImage.Icon.ALIGNRIGHT);
+        elements.push(alignright);
 
         if (moreBox) {
             const displayId = player.getVideoSettings().displayId;
