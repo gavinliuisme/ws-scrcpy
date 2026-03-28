@@ -37,6 +37,7 @@ export class ToolBoxCheckbox extends ToolBoxElement<HTMLInputElement> {
         }
         const id = opt_id || title.toLowerCase().replace(' ', '_');
         label.htmlFor = input.id = `input_${id}`;
+        input.checked = id.endsWith('checked');
         this.input = input;
         this.label = label;
     }
