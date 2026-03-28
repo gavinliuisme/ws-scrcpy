@@ -79,7 +79,7 @@ export default class SvgImage {
                 return ToggleOffSVG;
             case Icon.SCREENPOWER:
                 return ScreenPowerSVG;
-            case Icon.ALIGNRIGHTSVG:
+            case Icon.ALIGNRIGHT:
                 return AlignRightSVG;
             default:
                 return '';
