@@ -1,0 +1,35 @@
+name: Docker Image CI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    # 1. 添加权限配置：允许写入 Packages (镜像仓库)
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # 2. 登录到 GitHub Container Registry
+    - name: Log in to the Container registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+      # password: ${{ secrets.GITHUB_TOKEN }}
+        password: ${{ secrets.CR_PAT }}
+
+    # 3. 构建并推送镜像
+    # 注意：这里替换了原来的 docker build 命令，使用官方 action 更稳定
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        # 标签格式：ghcr.io/你的用户名/镜像名:latest
+        tags: ghcr.io/${{ github.repository_owner }}/ws-scrcpy:latest
