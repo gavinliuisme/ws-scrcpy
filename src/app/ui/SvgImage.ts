@@ -7,6 +7,7 @@ import VolumeUpSVG from '../../public/images/skin-light/ic_volume_up_678_48px.sv
 import BackSVG from '../../public/images/skin-light/System_Back_678.svg';
 import HomeSVG from '../../public/images/skin-light/System_Home_678.svg';
 import OverviewSVG from '../../public/images/skin-light/System_Overview_678.svg';
+import ScreenPowerSVG from '../../public/images/skin-light/ic_screen_power.svg';
 import CancelSVG from '../../public/images/buttons/cancel.svg';
 import OfflineSVG from '../../public/images/buttons/offline.svg';
 import RefreshSVG from '../../public/images/buttons/refresh.svg';
@@ -15,7 +16,6 @@ import MenuSVG from '../../public/images/buttons/menu.svg';
 import ArrowBackSVG from '../../public/images/buttons/arrow_back.svg';
 import ToggleOnSVG from '../../public/images/buttons/toggle_on.svg';
 import ToggleOffSVG from '../../public/images/buttons/toggle_off.svg';
-import ScreenPowerSVG from '../../public/images/buttons/ic_screen_power.svg';
 
 export enum Icon {
     BACK,
