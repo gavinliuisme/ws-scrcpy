@@ -1,23 +1,37 @@
+let savedPosition = localStorage.getItem('deviceViewPosition') || 'left';
+setstyleProperty('--device-view', savedPosition);
+setstyleProperty('--rotate-angle', savedPosition === 'right' ? '180deg' : '0deg');
+const checkbgcolor = getComputedStyle(document.documentElement).getPropertyValue('--svg-checkbox-bg-color').trim();
+setstyleProperty('--svg-checkbox-bg-color', "var(--svg-button-fill)");
+
+function setstyleProperty(name, value) {
+    document.documentElement.style.setProperty(name, value);
+}
+
 function executeActions() {
     const checkExist = setInterval(() => {
-        const button = document.querySelector('.control-button[title="Screen Power"]');
-        if (button) {
+        const video = document.querySelector('.video');
+        if (video && video.querySelector('video')?.src) {
+            setstyleProperty('--svg-checkbox-bg-color', checkbgcolor);
             clearInterval(checkExist);
-            button.click();
-            const canvas = document.querySelector('.video');
-            console.log('canvas', canvas);
-            if(canvas){
-                canvas.addEventListener('contextmenu', function(e) {
-                    e.preventDefault(); // 阻止默认的右键菜单
-                    clickElementCenter('.control-button[title="Back"]');
-                });
-            }
-        }
-        
-    }, 100);
+            document.querySelector('.control-button[title="Screen Power"]')?.click();
+            video.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                clickElementCenter('.control-button[title="Back"]');
+            });
+            const alignbtn = document.querySelector('.control-button[title="Align"]');
+            alignbtn?.addEventListener('click', function() {
+                savedPosition = savedPosition === 'right' ? 'left' : 'right';
+                setstyleProperty('--device-view', savedPosition);
+                setstyleProperty('--rotate-angle', savedPosition === 'right' ? '180deg' : '0deg');
+                localStorage.setItem('deviceViewPosition', savedPosition);
+            });
+        }        
+    }, 50);
     setTimeout(() => {
+        setstyleProperty('--svg-checkbox-bg-color', checkbgcolor);
         clearInterval(checkExist);
-    }, 5000);
+    }, 2000);
 }
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', executeActions);
@@ -26,13 +40,10 @@ if (document.readyState === 'loading') {
 }
 
 function clickElementCenter(selector) {
-    const target = document.querySelector(selector);
-    
+    const target = document.querySelector(selector);    
     if (!target) {
         return;
     }
-
-    // 获取位置
     const rect = target.getBoundingClientRect();
     const x = rect.left + rect.width / 2;
     const y = rect.top + rect.height / 2;
@@ -44,10 +55,7 @@ function clickElementCenter(selector) {
         clientX: x,
         clientY: y
     };
-
-    // 依次触发 mousedown -> mouseup -> click
     target.dispatchEvent(new MouseEvent('mousedown', eventInit));
     target.dispatchEvent(new MouseEvent('mouseup', eventInit));
     target.dispatchEvent(new MouseEvent('click', eventInit));
 }
-console.log('ws_scrcpy.js loaded');
