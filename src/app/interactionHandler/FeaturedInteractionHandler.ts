@@ -5,6 +5,8 @@ import { TouchControlMessage } from '../controlMessage/TouchControlMessage';
 import MotionEvent from '../MotionEvent';
 import ScreenInfo from '../ScreenInfo';
 import { ScrollControlMessage } from '../controlMessage/ScrollControlMessage';
+import { KeyCodeControlMessage } from '../controlMessage/KeyCodeControlMessage';
+import KeyEvent from '../googDevice/android/KeyEvent';
 
 const TAG = '[FeaturedTouchHandler]';
 
@@ -33,6 +35,7 @@ export class FeaturedInteractionHandler extends InteractionHandler {
         super(player, FeaturedInteractionHandler.touchEventsNames, FeaturedInteractionHandler.keyEventsNames);
         this.tag.addEventListener('mouseleave', this.onMouseLeave);
         this.tag.addEventListener('mouseenter', this.onMouseEnter);
+        this.tag.addEventListener('contextmenu', this.onContextMenu); // 新增
     }
 
     public buildScrollEvent(event: WheelEvent, screenInfo: ScreenInfo): ScrollControlMessage[] {
@@ -122,11 +125,18 @@ export class FeaturedInteractionHandler extends InteractionHandler {
         this.storedFromMouseEvent.clear();
         this.clearCanvas();
     };
+    private onContextMenu = (event: MouseEvent): void => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.listener.sendMessage(new KeyCodeControlMessage(MotionEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK, 0, 0));
+        this.listener.sendMessage(new KeyCodeControlMessage(MotionEvent.ACTION_UP, KeyEvent.KEYCODE_BACK, 0, 0));
+    };
 
     public release(): void {
         super.release();
         this.tag.removeEventListener('mouseleave', this.onMouseLeave);
         this.tag.removeEventListener('mouseenter', this.onMouseEnter);
+        this.tag.removeEventListener('contextmenu', this.onContextMenu); // 新增
         this.storedFromMouseEvent.clear();
     }
 }
