@@ -31,10 +31,6 @@ import { StreamReceiverScrcpy } from './StreamReceiverScrcpy';
 import { ParamsDeviceTracker } from '../../../types/ParamsDeviceTracker';
 import { ScrcpyFilePushStream } from '../filePush/ScrcpyFilePushStream';
 
-interface ClipboardSyncOptions {
-    enabled?: boolean;
-    checkInterval?: number; // 浏览器剪贴板检查间隔（毫秒）
-}
 
 class DeviceClipboardReader {
     private static instance: DeviceClipboardReader | null = null;
@@ -163,7 +159,7 @@ export class StreamClientScrcpy
     private filePushHandler?: FilePushHandler;
     private fitToScreen?: boolean;
     private readonly streamReceiver: StreamReceiverScrcpy;
-    private clipboardSyncManager: ClipboardSyncManager | null = null;
+    private deviceClipboardReader: DeviceClipboardReader  | null = null;
 
     public static registerPlayer(playerClass: PlayerClass): void {
         if (playerClass.isSupported()) {
