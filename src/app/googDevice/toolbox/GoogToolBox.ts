@@ -105,7 +105,7 @@ export class GoogToolBox extends ToolBox {
         const createAlignButton = (): ToolBoxButton => {
             const button = new ToolBoxButton('Align', SvgImage.Icon.ALIGNRIGHT);
             const buttonElement = button.getElement();
-            const alignKey = `device_align_${udid}_${playerName}`;
+            const alignKey = `device_align_${udid}`;
             
             buttonElement.style.transformOrigin = 'center';
             buttonElement.style.transition = 'transform 0.3s ease';
@@ -140,7 +140,7 @@ export class GoogToolBox extends ToolBox {
             'Maximize video',
             SvgImage.Icon.ALIGNRIGHT,
         );        
-        maximize.addEventListener('click', () => {
+        maximize。addEventListener('click', () => {
             const maxSize = client.getMaxSize();
             if (maxSize) {
                 const currentSettings = player.getVideoSettings();
