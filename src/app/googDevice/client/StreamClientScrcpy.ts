@@ -35,88 +35,45 @@ interface ClipboardSyncOptions {
     enabled?: boolean;
     checkInterval?: number; // 浏览器剪贴板检查间隔（毫秒）
 }
-class ClipboardSyncManager {
-    private static instance: ClipboardSyncManager | null = null;
+
+class DeviceClipboardReader {
+    private static instance: DeviceClipboardReader | null = null;
     
     private streamClient: StreamClientScrcpy;
     private enabled: boolean = false;
-    private checkInterval: number = 2000; // 改为2秒，减少频率
-    private intervalId: number | null = null;
-    
-    // 状态管理
     private lastDeviceClipboardText: string = '';
-    private lastBrowserClipboardText: string = '';
-    private lastSyncToDeviceTime: number = 0; // 上次同步到设备的时间
-    private lastSyncToBrowserTime: number = 0; // 上次同步到浏览器的时间
-    private coolingPeriod: number = 3000; // 冷却期3秒
-    private isSyncingToDevice: boolean = false;
-    private isSyncingToBrowser: boolean = false;
     
     private constructor(streamClient: StreamClientScrcpy) {
         this.streamClient = streamClient;
     }
     
-    public static getInstance(streamClient: StreamClientScrcpy): ClipboardSyncManager {
-        if (!ClipboardSyncManager.instance) {
-            ClipboardSyncManager.instance = new ClipboardSyncManager(streamClient);
+    public static getInstance(streamClient: StreamClientScrcpy): DeviceClipboardReader {
+        if (!DeviceClipboardReader.instance) {
+            DeviceClipboardReader.instance = new DeviceClipboardReader(streamClient);
         }
-        return ClipboardSyncManager.instance;
+        return DeviceClipboardReader.instance;
     }
     
-    public async enable(options: ClipboardSyncOptions = {}): Promise<void> {
+    public enable(): void {
         if (this.enabled) {
+            console.log('[DeviceClipboardReader] 已经启用');
             return;
         }
         
-        if (options.enabled !== undefined) {
-            this.enabled = options.enabled;
-        }
-        
-        if (options.checkInterval !== undefined) {
-            this.checkInterval = options.checkInterval;
-        }
-        
-        try {
-            await this.initializeSync();
-        } catch (error) {
-            console.error('[ClipboardSync] 初始化失败', error);
-        }
-    }
-    
-    private async initializeSync(): Promise<void> {
-        // 初始化时读取当前浏览器剪贴板
-        try {
-            const browserText = await this.readBrowserClipboard();
-            this.lastBrowserClipboardText = browserText;
-        } catch (error) {
-            console.warn('[ClipboardSync] 初始化读取浏览器剪贴板失败', error);
-        }
-        
-        // 启动浏览器剪贴板监控（延迟启动，避免干扰初始状态）
-        setTimeout(() => {
-            this.startBrowserClipboardMonitoring();
-        }, 1000); // 延迟1秒启动
-        
         this.enabled = true;
-        console.log('[ClipboardSync] 双向剪贴板同步已启用');
+        console.log('[DeviceClipboardReader] 设备剪贴板读取已启用');
     }
     
     public disable(): void {
         this.enabled = false;
-        
-        if (this.intervalId !== null) {
-            clearInterval(this.intervalId);
-            this.intervalId = null;
-        }
-        
-        console.log('[ClipboardSync] 双向剪贴板同步已禁用');
+        console.log('[DeviceClipboardReader] 设备剪贴板读取已禁用');
     }
     
     /**
-     * 设备剪贴板 → 浏览器（被动接收，不需要冷却）
+     * 设备剪贴板 → 浏览器
      */
-    public async syncFromDeviceToDeviceMessage(message: DeviceMessage): Promise<void> {
-        if (!this.enabled || this.isSyncingToBrowser) {
+    public async syncFromDevice(message: DeviceMessage): Promise<void> {
+        if (!this.enabled) {
             return;
         }
         
@@ -124,80 +81,23 @@ class ClipboardSyncManager {
             const deviceText = message.getText();
             
             // 如果设备剪贴板内容没有变化，跳过
-            if (deviceText === this.lastDeviceClipboardText || !deviceText) {
+            if (deviceText === this.lastDeviceClipboardText) {
                 return;
             }
             
             // 如果与浏览器剪贴板相同，跳过
             const browserText = await this.readBrowserClipboard();
             if (deviceText === browserText) {
-                this.lastDeviceClipboardText = deviceText; // 更新状态但不写入
+                this.lastDeviceClipboardText = deviceText;
                 return;
             }
             
-            this.isSyncingToBrowser = true;
             await this.writeBrowserClipboard(deviceText);
             this.lastDeviceClipboardText = deviceText;
-            this.lastSyncToBrowserTime = Date.now();
-            console.log('[ClipboardSync] 设备 → 浏览器:', deviceText.substring(0, 50) + (deviceText.length > 50 ? '...' : ''));
+            console.log('[DeviceClipboardReader] 设备 → 浏览器:', deviceText.substring(0, 50) + (deviceText.length > 50 ? '...' : ''));
             
         } catch (error) {
-            console.error('[ClipboardSync] 同步到浏览器失败', error);
-        } finally {
-            this.isSyncingToBrowser = false;
-        }
-    }
-    
-    /**
-     * 浏览器剪贴板 → 设备（主动发送，需要冷却和去重）
-     */
-    private async syncToDevice(browserText: string): Promise<void> {
-        if (!this.enabled || this.isSyncingToDevice) {
-            return;
-        }
-        
-        const now = Date.now();
-        
-        // 如果浏览器剪贴板内容没有变化，跳过
-        if (browserText === this.lastBrowserClipboardText || !browserText) {
-            return;
-        }
-        
-        // 如果与设备剪贴板相同，跳过（避免循环）
-        if (browserText === this.lastDeviceClipboardText) {
-            this.lastBrowserClipboardText = browserText; // 更新状态但不发送
-            return;
-        }
-        
-        // 检查冷却期
-        const timeSinceLastSyncToBrowser = now - this.lastSyncToBrowserTime;
-        if (timeSinceLastSyncToBrowser < this.coolingPeriod) {
-            // 如果刚从设备同步过来，跳过（避免循环）
-            console.log('[ClipboardSync] 冷却期，跳过同步到设备');
-            this.lastBrowserClipboardText = browserText; // 更新状态但不发送
-            return;
-        }
-        
-        // 检查上次同步到设备的时间
-        const timeSinceLastSyncToDevice = now - this.lastSyncToDeviceTime;
-        if (timeSinceLastSyncToDevice < this.coolingPeriod) {
-            // 如果刚发送过，跳过
-            console.log('[ClipboardSync] 刚发送过，跳过同步到设备');
-            this.lastBrowserClipboardText = browserText; // 更新状态但不发送
-            return;
-        }
-        
-        try {
-            this.isSyncingToDevice = true;
-            await this.writeDeviceClipboard(browserText);
-            this.lastBrowserClipboardText = browserText;
-            this.lastSyncToDeviceTime = now;
-            console.log('[ClipboardSync] 浏览器 → 设备:', browserText.substring(0, 50) + (browserText.length > 50 ? '...' : ''));
-            
-        } catch (error) {
-            console.error('[ClipboardSync] 同步到设备失败', error);
-        } finally {
-            this.isSyncingToDevice = false;
+            console.error('[DeviceClipboardReader] 同步到浏览器失败', error);
         }
     }
     
@@ -206,52 +106,23 @@ class ClipboardSyncManager {
             const text = await navigator.clipboard.readText();
             return text || '';
         } catch (error) {
-            // 读取失败，使用降级方案
-            return await this.fallbackReadClipboard();
+            console.error('[DeviceClipboardReader] 读取浏览器剪贴板失败', error);
+            return '';
         }
     }
     
     private async writeBrowserClipboard(text: string): Promise<void> {
         try {
             await navigator.clipboard.writeText(text);
+            console.log('[DeviceClipboardReader] 写入浏览器剪贴板成功');
         } catch (error) {
+            console.error('[DeviceClipboardReader] 写入浏览器剪贴板失败', error);
             this.fallbackWriteClipboard(text);
         }
     }
     
-    private async writeDeviceClipboard(text: string): Promise<void> {
-        const command = CommandControlMessage.createSetClipboardCommand(text, false);
-        this.streamClient.sendMessage(command);
-    }
-    
-    private startBrowserClipboardMonitoring(): void {
-        if (this.intervalId !== null) {
-            return;
-        }
-        
-        console.log('[ClipboardSync] 启动浏览器剪贴板监控');
-        this.intervalId = window.setInterval(async () => {
-            try {
-                const currentText = await this.readBrowserClipboard();
-                
-                // 只在真正变化时才同步
-                if (currentText !== this.lastBrowserClipboardText) {
-                    await this.syncToDevice(currentText);
-                }
-            } catch (error) {
-                // 静默处理错误
-                console.debug('[ClipboardSync] 浏览器剪贴板监控错误:', error);
-            }
-        }, this.checkInterval);
-    }
-    
-    private async fallbackReadClipboard(): Promise<string> {
-        // 降级方案不靠谱，返回空字符串
-        return '';
-    }
-    
     private fallbackWriteClipboard(text: string): void {
-        // 降级方案，使用 document.execCommand
+        console.log('[DeviceClipboardReader] 使用降级方案写入剪贴板');
         const textArea = document.createElement('textarea');
         textArea.value = text;
         textArea.style.position = 'fixed';
@@ -368,8 +239,8 @@ export class StreamClientScrcpy
         videoSettings?: VideoSettings,
     ) {
         super(params);
-        // 初始化剪贴板同步管理器
-        this.clipboardSyncManager = ClipboardSyncManager.getInstance(this);
+        // 初始化设备剪贴板读取器
+        this.deviceClipboardReader = DeviceClipboardReader.getInstance(this);    
         if (streamReceiver) {
             this.streamReceiver = streamReceiver;
         } else {
@@ -395,22 +266,11 @@ export class StreamClientScrcpy
             ws: Util.parseString(params, 'ws', true),
         };
     }
-    // 添加启用/禁用剪贴板同步的方法
-    public async enableClipboardSync(checkInterval: number = 1000): Promise<void> {
-        if (this.clipboardSyncManager) {
-            await this.clipboardSyncManager.enable({ enabled: true, checkInterval });
-        }
-    }
     
-    public disableClipboardSync(): void {
-        if (this.clipboardSyncManager) {
-            this.clipboardSyncManager.disable();
-        }
-    }    
     public OnDeviceMessage = (message: DeviceMessage): void => {
         // 同步设备剪贴板到浏览器
-        if (this.clipboardSyncManager && message.type === DeviceMessage.TYPE_CLIPBOARD) {
-            this.clipboardSyncManager.syncFromDeviceToDeviceMessage(message);
+        if (this.deviceClipboardReader && message.type === DeviceMessage.TYPE_CLIPBOARD) {
+            this.deviceClipboardReader.syncFromDevice(message);
         }
 
         if (this.moreBox) {
@@ -511,15 +371,26 @@ export class StreamClientScrcpy
         this.streamReceiver.off('displayInfo', this.onDisplayInfo);
         this.streamReceiver.off('disconnected', this.onDisconnected);
 
-        // 禁用剪贴板同步
-        this.disableClipboardSync();
+        this.disableDeviceClipboardRead();
         
         this.filePushHandler?.release();
         this.filePushHandler = undefined;
         this.touchHandler?.release();
         this.touchHandler = undefined;
     };
-
+    // 添加启用/禁用方法
+    public enableDeviceClipboardRead(): void {
+        if (this.deviceClipboardReader) {
+            this.deviceClipboardReader.enable();
+        }
+    }
+     
+    public disableDeviceClipboardRead(): void {
+        if (this.deviceClipboardReader) {
+            this.deviceClipboardReader.disable();
+        }
+    }
+ 
     public startStream({ udid, player, playerName, videoSettings, fitToScreen }: StartParams): void {
         if (!udid) {
             throw Error(`Invalid udid value: "${udid}"`);
@@ -603,10 +474,7 @@ export class StreamClientScrcpy
         streamReceiver.on('clientsStats', this.onClientsStats);
         streamReceiver.on('displayInfo', this.onDisplayInfo);
         streamReceiver.on('disconnected', this.onDisconnected);
-        // 在连接成功后启用剪贴板同步
-        streamReceiver.on('connected', async () => {
-            await this.enableClipboardSync(1000);
-        });
+        streamReceiver.on('connected', this.enableDeviceClipboardRead);
         console.log(TAG, player.getName(), udid);
     }
 
