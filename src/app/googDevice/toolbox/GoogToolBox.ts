@@ -102,10 +102,10 @@ export class GoogToolBox extends ToolBox {
         });
         elements.push(screenpower);
         
+        const displayId = player.getVideoSettings().displayId;
         const createAlignButton = (): ToolBoxButton => {
             const button = new ToolBoxButton('Align', SvgImage.Icon.ALIGNRIGHT);
             const buttonElement = button.getElement();
-            const displayId = player.getVideoSettings().displayId;
             const alignKey = `device_align_${udid}_${displayId}`;
             
             buttonElement.style.transformOrigin = 'center';
@@ -137,24 +137,42 @@ export class GoogToolBox extends ToolBox {
         elements.push(alignRight);
 
         // 最大化
-        const maximize = new ToolBoxButton(
+        let maximizeKey = `maximize_videon_${udid}_${displayId}`;
+        let isAutoFull = localStorage.getItem(maximizeKey) === 'true';        
+        const maximize = new ToolBoxCheckbox(
             'Maximize video',
             SvgImage.Icon.ALIGNRIGHT,
-        );        
-        maximize.addEventListener('click', () => {
+            maximizeKey + (isAutoFull ? '_checked' : ''),
+        );
+        const toggleMaximize = () => {
             const maxSize = client.getMaxSize();
             if (maxSize) {
+                const viewportWidth = document.documentElement.clientWidth;
+                const viewportHeight = document.documentElement.clientHeight;
+                const aspectRatio = maxSize.width / maxSize.height;
+                let finalWidth = viewportWidth;
+                let finalHeight = viewportHeight;                
+                if (viewportWidth / viewportHeight > aspectRatio) {
+                    finalWidth = viewportHeight * aspectRatio;
+                } else {
+                    finalHeight = viewportWidth / aspectRatio;
+                }                
                 const currentSettings = player.getVideoSettings();
                 const newSettings = VideoSettings.copy(currentSettings);
-                Object.assign(newSettings, { bounds: new Size(maxSize.width, maxSize.height) });
+                Object.assign(newSettings, { bounds: new Size(finalWidth, finalHeight) });
                 player.setVideoSettings(newSettings, false, true);
                 client.sendNewVideoSetting(newSettings);
             }
+        }
+        isAutoFull && toggleMaximize();
+        maximize.addEventListener('click',(_, el)=>{
+            isAutoFull = !isAutoFull;
+            localStorage.setItem(alignKey, String(isAutoFull));
+            toggleMaximize();
         });
         elements.push(maximize);
         
         if (moreBox) {
-            const displayId = player.getVideoSettings().displayId;
             const id = `show_more_${udid}_${playerName}_${displayId}`;
             const more = new ToolBoxCheckbox('More', SvgImage.Icon.MORE, id);
             more.addEventListener('click', (_, el) => {
