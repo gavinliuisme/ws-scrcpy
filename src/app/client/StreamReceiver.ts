@@ -139,7 +139,6 @@ export class StreamReceiver<P extends ParamsStream> extends ManagerClient<Params
                 }                
                 if (StreamReceiver.EqualArrays(magicBytes, DeviceMessage.MAGIC_BYTES_MESSAGE)) {
                     const message = DeviceMessage.fromBuffer(event.data);
-                    console.log('[StreamReceiver] 解析后的设备消息:', message);
                     this.emit('deviceMessage', message);
                     return;
                 }
