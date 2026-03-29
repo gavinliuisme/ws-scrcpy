@@ -129,9 +129,30 @@ export class GoogToolBox extends ToolBox {
             return button;
         };
          
-        // 使用
+        // 靠左靠右
         const alignRight = createAlignButton();
         elements.push(alignRight);
+
+        // 最大化
+        const maximize = new ToolBoxCheckbox(
+            'Maximize video',
+            SvgImage.Icon.ALIGNRIGHT,
+            `maximize_video_${udid}_${playerName}`,
+        );
+        maximize.addEventListener('click', (_, el) => {
+            const element = el.getElement();
+            const fitToScreen = !element.checked;
+            const currentSettings = player.getVideoSettings();
+            
+            // 保存最大化状态
+            const key = `maximize_${udid}_${playerName}_${player.getVideoSettings().displayId}`;
+            localStorage.setItem(key, JSON.stringify(element.checked));
+            
+            // 应用新的设置
+            player.setVideoSettings(currentSettings, fitToScreen, true);
+            client.sendNewVideoSetting(currentSettings);
+        });
+        elements.push(maximize);
         
         if (moreBox) {
             const displayId = player.getVideoSettings().displayId;
