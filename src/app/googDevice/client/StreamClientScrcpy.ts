@@ -51,7 +51,6 @@ class ClipboardSyncManager {
     private coolingPeriod: number = 3000; // 冷却期3秒
     private isSyncingToDevice: boolean = false;
     private isSyncingToBrowser: boolean = false;
-    private initialSyncDone: boolean = false; // 是否已完成初始同步
     
     private constructor(streamClient: StreamClientScrcpy) {
         this.streamClient = streamClient;
