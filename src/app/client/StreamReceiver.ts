@@ -130,40 +130,21 @@ export class StreamReceiver<P extends ParamsStream> extends ManagerClient<Params
     }
 
     protected onSocketMessage(event: MessageEvent): void {
-        console.log('[StreamReceiver] onSocketMessage 被调用');
-        console.log('[StreamReceiver] 事件数据类型:', event.data.constructor.name);
-        
         if (event.data instanceof ArrayBuffer) {
-            console.log('[StreamReceiver] ArrayBuffer 大小:', event.data.byteLength);
-            
-            // 检查魔数
             if (event.data.byteLength > MAGIC_BYTES_INITIAL.length) {
                 const magicBytes = new Uint8Array(event.data, 0, MAGIC_BYTES_INITIAL.length);
-                const magicStr = String.fromCharCode(...magicBytes);
-                console.log('[StreamReceiver] 魔数字节:', Array.from(magicBytes));
-                console.log('[StreamReceiver] 魔数字符串:', magicStr);
-                
                 if (StreamReceiver.EqualArrays(magicBytes, MAGIC_BYTES_INITIAL)) {
-                    console.log('[StreamReceiver] 是初始信息消息');
                     this.handleInitialInfo(event.data);
                     return;
-                }
-                
+                }                
                 if (StreamReceiver.EqualArrays(magicBytes, DeviceMessage.MAGIC_BYTES_MESSAGE)) {
-                    console.log('[StreamReceiver] 是设备消息');
                     const message = DeviceMessage.fromBuffer(event.data);
                     console.log('[StreamReceiver] 解析后的设备消息:', message);
                     this.emit('deviceMessage', message);
                     return;
                 }
-                
-                console.log('[StreamReceiver] 魔数不匹配，当作视频数据');
             }
-     
-            console.log('[StreamReceiver] 发出 video 事件');
             this.emit('video', new Uint8Array(event.data));
-        } else {
-            console.log('[StreamReceiver] 不是 ArrayBuffer，忽略');
         }
     }
 
