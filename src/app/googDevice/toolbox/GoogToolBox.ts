@@ -181,7 +181,7 @@ export class GoogToolBox extends ToolBox {
         }
         
         // 绑定事件
-        maximize.addEventListener('click', (_, el) => {
+        maximize.addEventListener('click', () => {
             isAutoFull = !isAutoFull;
             localStorage.setItem(maximizeKey, String(isAutoFull));
             applyMaximize();
