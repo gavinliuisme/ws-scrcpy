@@ -31,177 +31,6 @@ import { StreamReceiverScrcpy } from './StreamReceiverScrcpy';
 import { ParamsDeviceTracker } from '../../../types/ParamsDeviceTracker';
 import { ScrcpyFilePushStream } from '../filePush/ScrcpyFilePushStream';
  
-class DeviceClipboardReader {
-    private static instance: DeviceClipboardReader | null = null;
-    
-    private streamClient: StreamClientScrcpy;
-    private enabled: boolean = false;
-    private lastDeviceClipboardText: string = '';
-    private intervalId: number | null = null;
-    private pollInterval: number = 5000; // 默认5秒轮询一次
-    private isRequesting: boolean = false; // 防止重复请求
-    
-    private constructor(streamClient: StreamClientScrcpy) {
-        this.streamClient = streamClient;
-    }
-    
-    public static getInstance(streamClient: StreamClientScrcpy): DeviceClipboardReader {
-        if (!DeviceClipboardReader.instance) {
-            DeviceClipboardReader.instance = new DeviceClipboardReader(streamClient);
-        }
-        return DeviceClipboardReader.instance;
-    }
-    
-    /**
-     * 启用设备剪贴板读取
-     * @param pollInterval 轮询间隔（毫秒），默认5000ms
-     */
-    public enable(pollInterval: number = 5000): void {
-        if (this.enabled) {
-            console.log('[DeviceClipboardReader] 已经启用');
-            return;
-        }
-        
-        this.pollInterval = pollInterval;
-        this.enabled = true;
-        
-        // 启动定时轮询
-        this.startPolling();
-        
-        console.log(`[DeviceClipboardReader] 设备剪贴板读取已启用（轮询间隔: ${pollInterval}ms）`);
-    }
-    
-    public disable(): void {
-        this.enabled = false;
-        
-        if (this.intervalId !== null) {
-            clearInterval(this.intervalId);
-            this.intervalId = null;
-        }
-        
-        console.log('[DeviceClipboardReader] 设备剪贴板读取已禁用');
-    }
-    
-    /**
-     * 手动触发获取设备剪贴板
-     */
-    public async fetchDeviceClipboard(): Promise<string | null> {
-        if (!this.enabled) {
-            console.warn('[DeviceClipboardReader] 未启用，无法获取设备剪贴板');
-            return null;
-        }
-        
-        if (this.isRequesting) {
-            console.log('[DeviceClipboardReader] 正在请求中，跳过');
-            return null;
-        }
-        
-        try {
-            this.isRequesting = true;
-            
-            // 发送获取剪贴板命令
-            const command = new CommandControlMessage(ControlMessage.TYPE_GET_CLIPBOARD);
-            this.streamClient.sendMessage(command);
-            
-            console.log('[DeviceClipboardReader] 已发送获取设备剪贴板请求');
-            
-            // 等待设备响应（通过 syncFromDevice 接收）
-            // 这里返回 null，实际结果会在 syncFromDevice 中处理
-            return null;
-            
-        } catch (error) {
-            console.error('[DeviceClipboardReader] 获取设备剪贴板失败', error);
-            return null;
-        } finally {
-            this.isRequesting = false;
-        }
-    }
-    
-    /**
-     * 处理设备返回的剪贴板消息
-     */
-    public async syncFromDevice(message: DeviceMessage): Promise<void> {
-        if (!this.enabled) {
-            return;
-        }
-        
-        try {
-            const deviceText = message.getText();
-            
-            // 如果设备剪贴板内容没有变化，跳过
-            if (deviceText === this.lastDeviceClipboardText) {
-                return;
-            }
-            
-            // 如果与浏览器剪贴板相同，跳过
-            const browserText = await this.readBrowserClipboard();
-            if (deviceText === browserText) {
-                this.lastDeviceClipboardText = deviceText;
-                return;
-            }
-            
-            await this.writeBrowserClipboard(deviceText);
-            this.lastDeviceClipboardText = deviceText;
-            console.log('[DeviceClipboardReader] 设备 → 浏览器:', deviceText.substring(0, 50) + (deviceText.length > 50 ? '...' : ''));
-            
-        } catch (error) {
-            console.error('[DeviceClipboardReader] 同步到浏览器失败', error);
-        }
-    }
-    
-    /**
-     * 启动定时轮询
-     */
-    private startPolling(): void {
-        if (this.intervalId !== null) {
-            return;
-        }
-        
-        // 初始获取一次
-        setTimeout(() => {
-            this.fetchDeviceClipboard();
-        }, 1000);
-        
-        // 定时轮询
-        this.intervalId = window.setInterval(() => {
-            this.fetchDeviceClipboard();
-        }, this.pollInterval);
-    }
-    
-    private async readBrowserClipboard(): Promise<string> {
-        try {
-            const text = await navigator.clipboard.readText();
-            return text || '';
-        } catch (error) {
-            console.error('[DeviceClipboardReader] 读取浏览器剪贴板失败', error);
-            return '';
-        }
-    }
-    
-    private async writeBrowserClipboard(text: string): Promise<void> {
-        try {
-            await navigator.clipboard.writeText(text);
-            console.log('[DeviceClipboardReader] 写入浏览器剪贴板成功');
-        } catch (error) {
-            console.error('[DeviceClipboardReader] 写入浏览器剪贴板失败', error);
-            this.fallbackWriteClipboard(text);
-        }
-    }
-    
-    private fallbackWriteClipboard(text: string): void {
-        console.log('[DeviceClipboardReader] 使用降级方案写入剪贴板');
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-9999px';
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-    }
-}
-
-
 type StartParams = {
     udid: string;
     playerName?: string;
@@ -231,7 +60,6 @@ export class StreamClientScrcpy
     private filePushHandler?: FilePushHandler;
     private fitToScreen?: boolean;
     private readonly streamReceiver: StreamReceiverScrcpy;
-    private deviceClipboardReader: DeviceClipboardReader  | null = null;
 
     public static registerPlayer(playerClass: PlayerClass): void {
         if (playerClass.isSupported()) {
@@ -306,11 +134,7 @@ export class StreamClientScrcpy
         fitToScreen?: boolean,
         videoSettings?: VideoSettings,
     ) {
-        super(params);
-        
-        // 初始化设备剪贴板读取器
-        this.deviceClipboardReader = DeviceClipboardReader.getInstance(this);
-        
+        super(params);        
         if (streamReceiver) {
             this.streamReceiver = streamReceiver;
         } else {
@@ -336,22 +160,13 @@ export class StreamClientScrcpy
             ws: Util.parseString(params, 'ws', true),
         };
     }
-    // 修改 OnDeviceMessage 方法，添加详细日志
+    
     public OnDeviceMessage = (message: DeviceMessage): void => {
-        console.log('[StreamClientScrcpy] OnDeviceMessage 被调用');
-        console.log('[StreamClientScrcpy] 消息类型:', message.type);
-        console.log('[StreamClientScrcpy] 消息内容:', message);
-        
-        // 处理设备剪贴板响应
-        if (this.deviceClipboardReader) {
-            console.log('[StreamClientScrcpy] 调用 deviceClipboardReader.syncFromDevice');
-            this.deviceClipboardReader.syncFromDevice(message);
-        }
-        
         if (this.moreBox) {
             this.moreBox.OnDeviceMessage(message);
         }
     };
+    
     public onVideo = (data: ArrayBuffer): void => {
         if (!this.player) {
             return;
@@ -444,36 +259,13 @@ export class StreamClientScrcpy
         this.streamReceiver.off('clientsStats', this.onClientsStats);
         this.streamReceiver.off('displayInfo', this.onDisplayInfo);
         this.streamReceiver.off('disconnected', this.onDisconnected);
-
-        this.disableDeviceClipboardRead();
         
         this.filePushHandler?.release();
         this.filePushHandler = undefined;
         this.touchHandler?.release();
         this.touchHandler = undefined;
     };
-    // 添加启用/禁用方法    
-    public enableDeviceClipboardRead(pollInterval: number = 5000): void {
-        if (this.deviceClipboardReader) {
-            this.deviceClipboardReader.enable(pollInterval);
-        }
-    }
- 
      
-    public disableDeviceClipboardRead(): void {
-        if (this.deviceClipboardReader) {
-            this.deviceClipboardReader.disable();
-        }
-    }
-    
-    // 手动获取设备剪贴板
-    public async fetchDeviceClipboard(): Promise<string | null> {
-        if (this.deviceClipboardReader) {
-            return await this.deviceClipboardReader.fetchDeviceClipboard();
-        }
-        return null;
-    }
- 
     public startStream({ udid, player, playerName, videoSettings, fitToScreen }: StartParams): void {
         if (!udid) {
             throw Error(`Invalid udid value: "${udid}"`);
@@ -557,12 +349,6 @@ export class StreamClientScrcpy
         streamReceiver.on('clientsStats', this.onClientsStats);
         streamReceiver.on('displayInfo', this.onDisplayInfo);
         streamReceiver.on('disconnected', this.onDisconnected);
-        // 在连接成功后启用设备剪贴板读取
-        streamReceiver.on('connected', () => {
-            if (this.deviceClipboardReader) {
-                this.deviceClipboardReader.enable(3000);
-            }
-        });
         console.log(TAG, player.getName(), udid);
     }
 
