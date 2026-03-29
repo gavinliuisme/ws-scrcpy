@@ -113,6 +113,7 @@ export class GoogToolBox extends ToolBox {
             
             // 应用初始状态
             buttonElement.style.transform = isAlignedRight ? 'rotate(0deg)' : 'rotate(180deg)';
+            document.documentElement.style.setProperty('--device-view', isAlignedRight ? "left" : "right");
             
             button.addEventListener('click', () => {
                 isAlignedRight = !isAlignedRight;
@@ -122,11 +123,7 @@ export class GoogToolBox extends ToolBox {
                 
                 // 更新 UI
                 buttonElement.style.transform = isAlignedRight ? 'rotate(0deg)' : 'rotate(180deg)';
-                
-                const deviceView = document.querySelector('.device-view');
-                if (deviceView) {
-                    deviceView.style.float = isAlignedRight ? 'left' : 'right';
-                }
+                document.documentElement.style.setProperty('--device-view', isAlignedRight ? "left" : "right");
             });
             
             return button;
