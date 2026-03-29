@@ -105,7 +105,7 @@ export class GoogToolBox extends ToolBox {
         const createAlignButton = (): ToolBoxButton => {
             const button = new ToolBoxButton('Align', SvgImage.Icon.ALIGNRIGHT);
             const buttonElement = button.getElement();
-            const alignKey = `device_align_${udid}`;
+            const alignKey = `device_align_${udid}_${displayId}`;
             
             buttonElement.style.transformOrigin = 'center';
             buttonElement.style.transition = 'transform 0.3s ease';
