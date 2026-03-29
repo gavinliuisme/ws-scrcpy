@@ -100,9 +100,42 @@ export class GoogToolBox extends ToolBox {
         });
         elements.push(screenpower);
         
-        const alignright = new ToolBoxButton('Align', SvgImage.Icon.ALIGNRIGHT);
-        elements.push(alignright);
-
+        const createAlignButton = (): ToolBoxButton => {
+            const button = new ToolBoxButton('Align', SvgImage.Icon.ALIGNRIGHT);
+            const buttonElement = button.getElement();
+            const alignKey = `device_align_${udid}_${playerName}`;
+            
+            buttonElement.style.transformOrigin = 'center';
+            buttonElement.style.transition = 'transform 0.3s ease';
+            
+            // 读取初始状态
+            let isAlignedRight = localStorage.getItem(alignKey) === 'true';
+            
+            // 应用初始状态
+            buttonElement.style.transform = isAlignedRight ? 'rotate(0deg)' : 'rotate(180deg)';
+            
+            button.addEventListener('click', () => {
+                isAlignedRight = !isAlignedRight;
+                
+                // 保存状态
+                localStorage.setItem(alignKey, String(isAlignedRight));
+                
+                // 更新 UI
+                buttonElement.style.transform = isAlignedRight ? 'rotate(0deg)' : 'rotate(180deg)';
+                
+                const deviceView = document.querySelector('.device-view');
+                if (deviceView) {
+                    deviceView.style.float = isAlignedRight ? 'left' : 'right';
+                }
+            });
+            
+            return button;
+        };
+         
+        // 使用
+        const alignRight = createAlignButton();
+        elements.push(alignRight);
+        
         if (moreBox) {
             const displayId = player.getVideoSettings().displayId;
             const id = `show_more_${udid}_${playerName}_${displayId}`;
