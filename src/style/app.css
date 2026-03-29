@@ -21,6 +21,7 @@
     --progress-background-color: hsla(225, 100%, 50%, 0.2);
     --progress-background-error-color: hsla(0, 100%, 50%, 0.2);
     --font-size: 14px;
+    --device-view: left;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -103,7 +104,7 @@ body.stream {
 
 .device-view {
     z-index: 1;
-    float: right;
+    float: var(--device-view);
     display: inline-block;
 }
 
