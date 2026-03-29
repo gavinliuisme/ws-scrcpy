@@ -137,39 +137,66 @@ export class GoogToolBox extends ToolBox {
         elements.push(alignRight);
 
         // 最大化
-        let maximizeKey = `maximize_videon_${udid}_${displayId}`;
-        let isAutoFull = localStorage.getItem(maximizeKey) === 'true';        
+        const maximizeKey = `maximize_video_${udid}_${displayId}`;
+        let isAutoFull = localStorage.getItem(maximizeKey) === 'true';
         const maximize = new ToolBoxCheckbox(
             'Maximize video',
             SvgImage.Icon.ALIGNRIGHT,
             maximizeKey + (isAutoFull ? '_checked' : ''),
         );
-        const toggleMaximize = () => {
-            const maxSize = client.getMaxSize();
-            if (maxSize) {
-                const viewportWidth = document.documentElement.clientWidth;
-                const viewportHeight = document.documentElement.clientHeight;
-                const aspectRatio = maxSize.width / maxSize.height;
-                let finalWidth = viewportWidth;
-                let finalHeight = viewportHeight;                
-                if (viewportWidth / viewportHeight > aspectRatio) {
-                    finalWidth = viewportHeight * aspectRatio;
-                } else {
-                    finalHeight = viewportWidth / aspectRatio;
-                }                
-                const currentSettings = player.getVideoSettings();
-                const newSettings = VideoSettings.copy(currentSettings);
-                Object.assign(newSettings, { bounds: new Size(finalWidth, finalHeight) });
-                player.setVideoSettings(newSettings, false, true);
-                client.sendNewVideoSetting(newSettings);
+        
+        // 提取计算逻辑
+        const calculateMaximizeSize = (maxSize: Size): Size => {
+            const viewportWidth = document.documentElement.clientWidth;
+            const viewportHeight = document.documentElement.clientHeight;
+            const aspectRatio = maxSize.width / maxSize.height;
+            
+            let finalWidth = viewportWidth;
+            let finalHeight = viewportHeight;
+            
+            if (viewportWidth / viewportHeight > aspectRatio) {
+                finalWidth = Math.round(viewportHeight * aspectRatio);
+            } else {
+                finalHeight = Math.round(viewportWidth / aspectRatio);
             }
+            
+            return new Size(finalWidth, finalHeight);
+        };
+        
+        const applyMaximize = () => {
+            const maxSize = client.getMaxSize();
+            if (!maxSize) return;
+            
+            const finalSize = calculateMaximizeSize(maxSize);
+            const currentSettings = player.getVideoSettings();
+            const newSettings = VideoSettings.copy(currentSettings);
+            Object.assign(newSettings, { bounds: finalSize });
+            player.setVideoSettings(newSettings, false, true);
+            client.sendNewVideoSetting(newSettings);
+        };
+        
+        // 初始化应用状态
+        if (isAutoFull) {
+            applyMaximize();
         }
-        isAutoFull && toggleMaximize();
-        maximize.addEventListener('click',(_, el)=>{
+        
+        // 绑定事件
+        maximize.addEventListener('click', (_, el) => {
             isAutoFull = !isAutoFull;
-            localStorage.setItem(alignKey, String(isAutoFull));
-            toggleMaximize();
+            localStorage.setItem(maximizeKey, String(isAutoFull));
+            applyMaximize();
         });
+        
+        // 可选：监听窗口大小改变，自动调整
+        if (isAutoFull) {
+            const handleResize = () => {
+                if (isAutoFull) {
+                    applyMaximize();
+                }
+            };
+            window.addEventListener('resize', handleResize);
+        }
+        
         elements.push(maximize);
         
         if (moreBox) {
