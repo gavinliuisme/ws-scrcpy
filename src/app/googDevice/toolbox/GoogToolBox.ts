@@ -142,10 +142,11 @@ export class GoogToolBox extends ToolBox {
         const maximize = new ToolBoxCheckbox(
             'Maximize video',
             SvgImage.Icon.ALIGNRIGHT,
-            maximizeKey + (isAutoFull ? '_checked' : ''),
+            maximizeKey,
+            undefined,
+            isAutoFull
         );
         
-        // 提取计算逻辑
         const calculateMaximizeSize = (maxSize: Size): Size => {
             const viewportWidth = document.documentElement.clientWidth;
             const viewportHeight = document.documentElement.clientHeight;
@@ -159,43 +160,42 @@ export class GoogToolBox extends ToolBox {
             } else {
                 finalHeight = Math.round(viewportWidth / aspectRatio);
             }
-            
             return new Size(finalWidth, finalHeight);
         };
         
         const applyMaximize = () => {
             const maxSize = client.getMaxSize();
             if (!maxSize) return;
-            
             const finalSize = calculateMaximizeSize(maxSize);
             const currentSettings = player.getVideoSettings();
             const newSettings = VideoSettings.copy(currentSettings);
             Object.assign(newSettings, { bounds: finalSize });
             player.setVideoSettings(newSettings, false, true);
             client.sendNewVideoSetting(newSettings);
+            console.log('maxsize:',maxSize,'newSettings',newSettings);
         };
         
-        // 初始化应用状态
+        // ✅ 延迟初始化，同时同步 checkbox 状态
         if (isAutoFull) {
-            applyMaximize();
+            requestAnimationFrame(() => {
+                applyMaximize();
+                (maximize.getElement() as HTMLInputElement).checked = true;
+            });
         }
         
-        // 绑定事件
-        maximize.addEventListener('click', () => {
-            isAutoFull = !isAutoFull;
+        maximize.addEventListener('click', (_, el) => {
+            isAutoFull = (el.getElement() as HTMLInputElement).checked;
             localStorage.setItem(maximizeKey, String(isAutoFull));
-            applyMaximize();
+            if (isAutoFull) {
+                applyMaximize();
+            }
         });
         
-        // 可选：监听窗口大小改变，自动调整
-        if (isAutoFull) {
-            const handleResize = () => {
-                if (isAutoFull) {
-                    applyMaximize();
-                }
-            };
-            window.addEventListener('resize', handleResize);
-        }
+        window.addEventListener('resize', () => {
+            if (isAutoFull) {
+                applyMaximize();
+            }
+        });
         
         elements.push(maximize);
         
