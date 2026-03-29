@@ -246,7 +246,11 @@ export class StreamClientScrcpy
             this.joinedStream = true;
             this.sendMessage(CommandControlMessage.createSetVideoSettingsCommand(min));
         }
-        this.sendMessage(CommandControlMessage.createSetScreenPowerModeCommand(false));
+        
+        if (!this.joinedStream) {
+            this.joinedStream = true;
+            this.sendMessage(CommandControlMessage.createSetScreenPowerModeCommand(false));
+        }
     };
 
     public onDisconnected = (): void => {
