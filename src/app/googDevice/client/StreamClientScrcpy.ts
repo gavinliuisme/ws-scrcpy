@@ -336,17 +336,22 @@ export class StreamClientScrcpy
             ws: Util.parseString(params, 'ws', true),
         };
     }
-    
+    // 修改 OnDeviceMessage 方法，添加详细日志
     public OnDeviceMessage = (message: DeviceMessage): void => {
+        console.log('[StreamClientScrcpy] OnDeviceMessage 被调用');
+        console.log('[StreamClientScrcpy] 消息类型:', message.type);
+        console.log('[StreamClientScrcpy] 消息内容:', message);
+        
         // 处理设备剪贴板响应
-        if (this.deviceClipboardReader && message.type === DeviceMessage.TYPE_CLIPBOARD) {
+        if (this.deviceClipboardReader) {
+            console.log('[StreamClientScrcpy] 调用 deviceClipboardReader.syncFromDevice');
             this.deviceClipboardReader.syncFromDevice(message);
         }
+        
         if (this.moreBox) {
             this.moreBox.OnDeviceMessage(message);
         }
     };
-
     public onVideo = (data: ArrayBuffer): void => {
         if (!this.player) {
             return;
