@@ -11,7 +11,7 @@ export class ToolBoxCheckbox extends ToolBoxElement<HTMLInputElement> {
     private readonly label: HTMLLabelElement;
     private readonly imageOn?: Element;
     private readonly imageOff: Element;
-    constructor(title: string, icons: Icons | Icon, opt_id?: string, optional?: Optional) {
+    constructor(title: string, icons: Icons | Icon, opt_id?: string, optional?: Optional,checked: boolean = false ) {
         super(title, optional);
         const input = document.createElement('input');
         input.type = 'checkbox';
@@ -37,7 +37,7 @@ export class ToolBoxCheckbox extends ToolBoxElement<HTMLInputElement> {
         }
         const id = opt_id || title.toLowerCase().replace(' ', '_');
         label.htmlFor = input.id = `input_${id}`;
-        input.checked = id.endsWith('checked');
+        input.checked = checked;
         this.input = input;
         this.label = label;
     }
