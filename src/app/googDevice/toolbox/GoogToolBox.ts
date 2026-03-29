@@ -112,7 +112,7 @@ export class GoogToolBox extends ToolBox {
             let isAlignedRight = localStorage.getItem(alignKey) === 'true';
             
             // 应用初始状态
-            buttonElement.style.transform = isAlignedRight ? 'rotate(0deg)' : 'rotate(180deg)';
+            buttonElement.style.transform = isAlignedRight ? 'rotateY(0deg)' : 'rotateY(180deg)';
             document.documentElement.style.setProperty('--device-view', isAlignedRight ? "left" : "right");
             
             button.addEventListener('click', () => {
@@ -122,7 +122,7 @@ export class GoogToolBox extends ToolBox {
                 localStorage.setItem(alignKey, String(isAlignedRight));
                 
                 // 更新 UI
-                buttonElement.style.transform = isAlignedRight ? 'rotate(0deg)' : 'rotate(180deg)';
+                buttonElement.style.transform = isAlignedRight ? 'rotateY(0deg)' : 'rotateY(180deg)';
                 document.documentElement.style.setProperty('--device-view', isAlignedRight ? "left" : "right");
             });
             
