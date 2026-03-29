@@ -8,6 +8,8 @@ import { ToolBoxCheckbox } from '../../toolbox/ToolBoxCheckbox';
 import { StreamClientScrcpy } from '../client/StreamClientScrcpy';
 import { BasePlayer } from '../../player/BasePlayer';
 import { CommandControlMessage } from '../../controlMessage/CommandControlMessage';
+import VideoSettings from '../../VideoSettings';
+import Size from '../../Size';
 
 const BUTTONS = [
     {
