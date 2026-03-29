@@ -160,7 +160,9 @@ export class GoogToolBox extends ToolBox {
             } else {
                 finalHeight = Math.round(viewportWidth / aspectRatio);
             }
-            return new Size(finalWidth, finalHeight);
+            const roundedWidth = Math.round(finalWidth / 16) * 16;
+            const roundedHeight = Math.round(finalHeight / 16) * 16;
+            return new Size(roundedWidth, roundedHeight);
         };
         
         const applyMaximize = () => {
