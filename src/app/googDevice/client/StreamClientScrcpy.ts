@@ -31,6 +31,223 @@ import { StreamReceiverScrcpy } from './StreamReceiverScrcpy';
 import { ParamsDeviceTracker } from '../../../types/ParamsDeviceTracker';
 import { ScrcpyFilePushStream } from '../filePush/ScrcpyFilePushStream';
 
+interface ClipboardSyncOptions {
+    enabled?: boolean;
+    checkInterval?: number; // 浏览器剪贴板检查间隔（毫秒）
+}
+ 
+class ClipboardSyncManager {
+    private static instance: ClipboardSyncManager | null = null;
+    
+    private streamClient: StreamClientScrcpy;
+    private enabled: boolean = false;
+    private checkInterval: number = 1000; // 默认1秒检查一次
+    private intervalId: number | null = null;
+    private lastDeviceClipboardText: string = '';
+    private lastBrowserClipboardText: string = '';
+    private isSyncingToDevice: boolean = false; // 防止重复同步
+    private isSyncingToBrowser: boolean = false;
+    
+    private constructor(streamClient: StreamClientScrcpy) {
+        this.streamClient = streamClient;
+    }
+    
+    public static getInstance(streamClient: StreamClientScrcpy): ClipboardSyncManager {
+        if (!ClipboardSyncManager.instance) {
+            ClipboardSyncManager.instance = new ClipboardSyncManager(streamClient);
+        }
+        return ClipboardSyncManager.instance;
+    }
+    
+    // 启用剪贴板同步
+    public async enable(options: ClipboardSyncOptions = {}): Promise<void> {
+        if (this.enabled) {
+            return;
+        }
+        
+        if (options.enabled !== undefined) {
+            this.enabled = options.enabled;
+        }
+        
+        if (options.checkInterval !== undefined) {
+            this.checkInterval = options.checkInterval;
+        }
+        
+        // 检查剪贴板权限
+        try {
+            const permissionStatus = await navigator.permissions.query({ name: 'clipboard-read' as PermissionName });
+            if (permissionStatus.state === 'granted' || permissionStatus.state === 'prompt') {
+                await this.initializeSync();
+            } else {
+                console.warn('[ClipboardSync] 剪贴板读取权限未授予，尝试初始化');
+                await this.initializeSync();
+            }
+        } catch (error) {
+            // 某些浏览器不支持 permissions API，直接尝试初始化
+            console.warn('[ClipboardSync] 权限查询失败，尝试初始化', error);
+            await this.initializeSync();
+        }
+    }
+    
+    private async initializeSync(): Promise<void> {
+        // 初始化时读取当前浏览器剪贴板
+        try {
+            const browserText = await this.readBrowserClipboard();
+            this.lastBrowserClipboardText = browserText;
+        } catch (error) {
+            console.warn('[ClipboardSync] 初始化读取浏览器剪贴板失败', error);
+        }
+        
+        // 启动浏览器剪贴板监控
+        this.startBrowserClipboardMonitoring();
+        
+        // 启动设备剪贴板接收（通过 OnDeviceMessage）
+        this.enabled = true;
+        console.log('[ClipboardSync] 双向剪贴板同步已启用');
+    }
+    
+    // 禁用剪贴板同步
+    public disable(): void {
+        this.enabled = false;
+        
+        if (this.intervalId !== null) {
+            clearInterval(this.intervalId);
+            this.intervalId = null;
+        }
+        
+        console.log('[ClipboardSync] 双向剪贴板同步已禁用');
+    }
+    
+    // 设备剪贴板 → 浏览器
+    public async syncFromDeviceToDeviceMessage(message: DeviceMessage): Promise<void> {
+        if (!this.enabled || this.isSyncingToDevice) {
+            return;
+        }
+        
+        try {
+            const deviceText = message.getText();
+            
+            // 如果设备剪贴板内容没有变化，跳过
+            if (deviceText === this.lastDeviceClipboardText) {
+                return;
+            }
+            
+            // 如果浏览器剪贴板已经有相同内容，跳过（避免循环）
+            const browserText = await this.readBrowserClipboard();
+            if (deviceText === browserText) {
+                return;
+            }
+            
+            this.isSyncingToDevice = true;
+            await this.writeBrowserClipboard(deviceText);
+            this.lastDeviceClipboardText = deviceText;
+            console.log('[ClipboardSync] 设备 → 浏览器:', deviceText.substring(0, 50) + (deviceText.length > 50 ? '...' : ''));
+            
+        } catch (error) {
+            console.error('[ClipboardSync] 同步到浏览器失败', error);
+        } finally {
+            this.isSyncingToDevice = false;
+        }
+    }
+    
+    // 浏览器剪贴板 → 设备
+    private async syncToDevice(browserText: string): Promise<void> {
+        if (!this.enabled || this.isSyncingToBrowser) {
+            return;
+        }
+        
+        try {
+            // 如果浏览器剪贴板内容没有变化，跳过
+            if (browserText === this.lastBrowserClipboardText) {
+                return;
+            }
+            
+            // 如果设备剪贴板已经有相同内容，跳过（避免循环）
+            if (browserText === this.lastDeviceClipboardText) {
+                return;
+            }
+            
+            this.isSyncingToBrowser = true;
+            await this.writeDeviceClipboard(browserText);
+            this.lastBrowserClipboardText = browserText;
+            console.log('[ClipboardSync] 浏览器 → 设备:', browserText.substring(0, 50) + (browserText.length > 50 ? '...' : ''));
+            
+        } catch (error) {
+            console.error('[ClipboardSync] 同步到设备失败', error);
+        } finally {
+            this.isSyncingToBrowser = false;
+        }
+    }
+    
+    // 读取浏览器剪贴板
+    private async readBrowserClipboard(): Promise<string> {
+        try {
+            const text = await navigator.clipboard.readText();
+            return text || '';
+        } catch (error) {
+            // 降级方案：使用隐藏的 textarea
+            return await this.fallbackReadClipboard();
+        }
+    }
+    
+    // 写入浏览器剪贴板
+    private async writeBrowserClipboard(text: string): Promise<void> {
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch (error) {
+            // 降级方案
+            this.fallbackWriteClipboard(text);
+        }
+    }
+    
+    // 写入设备剪贴板
+    private async writeDeviceClipboard(text: string): Promise<void> {
+        const command = CommandControlMessage.createSetClipboardCommand(text, false);
+        this.streamClient.sendMessage(command);
+    }
+    
+    // 启动浏览器剪贴板监控
+    private startBrowserClipboardMonitoring(): void {
+        if (this.intervalId !== null) {
+            return;
+        }
+        
+        // 使用轮询方式监控浏览器剪贴板变化
+        this.intervalId = window.setInterval(async () => {
+            try {
+                const currentText = await this.readBrowserClipboard();
+                await this.syncToDevice(currentText);
+            } catch (error) {
+                // 静默处理错误
+            }
+        }, this.checkInterval);
+    }
+    
+    // 降级读取方案
+    private async fallbackReadClipboard(): Promise<string> {
+        const textArea = document.createElement('textarea');
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        const text = textArea.value;
+        document.body.removeChild(textArea);
+        return text;
+    }
+    
+    // 降级写入方案
+    private fallbackWriteClipboard(text: string): void {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+    }
+}
+
 type StartParams = {
     udid: string;
     playerName?: string;
@@ -60,6 +277,7 @@ export class StreamClientScrcpy
     private filePushHandler?: FilePushHandler;
     private fitToScreen?: boolean;
     private readonly streamReceiver: StreamReceiverScrcpy;
+    private clipboardSyncManager: ClipboardSyncManager | null = null;
 
     public static registerPlayer(playerClass: PlayerClass): void {
         if (playerClass.isSupported()) {
@@ -135,6 +353,8 @@ export class StreamClientScrcpy
         videoSettings?: VideoSettings,
     ) {
         super(params);
+        // 初始化剪贴板同步管理器
+        this.clipboardSyncManager = ClipboardSyncManager.getInstance(this);
         if (streamReceiver) {
             this.streamReceiver = streamReceiver;
         } else {
@@ -160,8 +380,24 @@ export class StreamClientScrcpy
             ws: Util.parseString(params, 'ws', true),
         };
     }
-
+    // 添加启用/禁用剪贴板同步的方法
+    public async enableClipboardSync(checkInterval: number = 1000): Promise<void> {
+        if (this.clipboardSyncManager) {
+            await this.clipboardSyncManager.enable({ enabled: true, checkInterval });
+        }
+    }
+    
+    public disableClipboardSync(): void {
+        if (this.clipboardSyncManager) {
+            this.clipboardSyncManager.disable();
+        }
+    }    
     public OnDeviceMessage = (message: DeviceMessage): void => {
+        // 同步设备剪贴板到浏览器
+        if (this.clipboardSyncManager && message.type === DeviceMessage.TYPE_CLIPBOARD) {
+            this.clipboardSyncManager.syncFromDeviceToDeviceMessage(message);
+        }
+
         if (this.moreBox) {
             this.moreBox.OnDeviceMessage(message);
         }
@@ -260,6 +496,9 @@ export class StreamClientScrcpy
         this.streamReceiver.off('displayInfo', this.onDisplayInfo);
         this.streamReceiver.off('disconnected', this.onDisconnected);
 
+        // 禁用剪贴板同步
+        this.disableClipboardSync();
+        
         this.filePushHandler?.release();
         this.filePushHandler = undefined;
         this.touchHandler?.release();
@@ -349,6 +588,10 @@ export class StreamClientScrcpy
         streamReceiver.on('clientsStats', this.onClientsStats);
         streamReceiver.on('displayInfo', this.onDisplayInfo);
         streamReceiver.on('disconnected', this.onDisconnected);
+        // 在连接成功后启用剪贴板同步
+        streamReceiver.on('connected', async () => {
+            await this.enableClipboardSync(1000);
+        });
         console.log(TAG, player.getName(), udid);
     }
 
