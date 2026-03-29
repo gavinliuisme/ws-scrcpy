@@ -134,23 +134,19 @@ export class GoogToolBox extends ToolBox {
         elements.push(alignRight);
 
         // 最大化
-        const maximize = new ToolBoxCheckbox(
+        const maximize = new ToolBoxButton(
             'Maximize video',
             SvgImage.Icon.ALIGNRIGHT,
-            `maximize_video_${udid}_${playerName}`,
         );
-        maximize.addEventListener('click', (_, el) => {
-            const element = el.getElement();
-            const fitToScreen = !element.checked;
-            const currentSettings = player.getVideoSettings();
-            
-            // 保存最大化状态
-            const key = `maximize_${udid}_${playerName}_${player.getVideoSettings().displayId}`;
-            localStorage.setItem(key, JSON.stringify(element.checked));
-            
-            // 应用新的设置
-            player.setVideoSettings(currentSettings, fitToScreen, true);
-            client.sendNewVideoSetting(currentSettings);
+        maximizeButton.addEventListener('click', () => {    
+            const maxSize = client.getMaxSize();
+            if (maxSize) {
+                const currentSettings = player.getVideoSettings();
+                const newSettings = VideoSettings.copy(currentSettings);
+                Object.assign(newSettings, { bounds: new Size(maxSize.width, maxSize.height) });
+                player.setVideoSettings(newSettings, false, true);
+                client.sendNewVideoSetting(newSettings);
+            }
         });
         elements.push(maximize);
         
