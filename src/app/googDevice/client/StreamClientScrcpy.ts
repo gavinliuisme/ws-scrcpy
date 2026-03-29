@@ -552,7 +552,12 @@ export class StreamClientScrcpy
         streamReceiver.on('clientsStats', this.onClientsStats);
         streamReceiver.on('displayInfo', this.onDisplayInfo);
         streamReceiver.on('disconnected', this.onDisconnected);
-        streamReceiver.on('connected', this.enableDeviceClipboardRead);
+        // 在连接成功后启用设备剪贴板读取
+        streamReceiver.on('connected', () => {
+            if (this.deviceClipboardReader) {
+                this.deviceClipboardReader.enable(3000);
+            }
+        });
         console.log(TAG, player.getName(), udid);
     }
 
