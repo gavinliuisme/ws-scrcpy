@@ -73,18 +73,34 @@ class ClipboardSyncManager {
             this.checkInterval = options.checkInterval;
         }
         
-        // 检查剪贴板权限
+        // 尝试检查权限（可选）
         try {
-            const permissionStatus = await navigator.permissions.query({ name: 'clipboard-read' as PermissionName });
-            if (permissionStatus.state === 'granted' || permissionStatus.state === 'prompt') {
-                await this.initializeSync();
+            // 检查 navigator.permissions 是否支持
+            if ('permissions' in navigator && 'query' in navigator.permissions) {
+                // 使用类型断言绕过 TypeScript 限制
+                const permissionName: any = 'clipboard-read';
+                const permissionStatus = await navigator.permissions.query({ 
+                    name: permissionName 
+                });
+                
+                if (permissionStatus.state === 'granted') {
+                    await this.initializeSync();
+                } else if (permissionStatus.state === 'prompt') {
+                    // 等待用户授权
+                    await this.initializeSync();
+                } else {
+                    // denied，但仍然尝试初始化
+                    console.warn('[ClipboardSync] 权限被拒绝，尝试初始化');
+                    await this.initializeSync();
+                }
             } else {
-                console.warn('[ClipboardSync] 剪贴板读取权限未授予，尝试初始化');
+                // 浏览器不支持 permissions API，直接初始化
+                console.log('[ClipboardSync] 浏览器不支持 permissions API，直接初始化');
                 await this.initializeSync();
             }
         } catch (error) {
-            // 某些浏览器不支持 permissions API，直接尝试初始化
-            console.warn('[ClipboardSync] 权限查询失败，尝试初始化', error);
+            // 捕获所有错误，直接初始化
+            console.warn('[ClipboardSync] 权限检查失败，直接初始化:', error);
             await this.initializeSync();
         }
     }
