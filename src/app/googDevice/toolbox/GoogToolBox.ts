@@ -179,7 +179,6 @@ export class GoogToolBox extends ToolBox {
         if (isAutoFull) {
             requestAnimationFrame(() => {
                 applyMaximize();
-                (maximize.getElement() as HTMLInputElement).checked = true;
             });
         }
         
