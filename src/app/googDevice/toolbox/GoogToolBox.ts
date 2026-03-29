@@ -138,7 +138,7 @@ export class GoogToolBox extends ToolBox {
             'Maximize video',
             SvgImage.Icon.ALIGNRIGHT,
         );        
-        const toggleMaximize = () => {            
+        maximize.addEventListener('click', () => {
             const maxSize = client.getMaxSize();
             if (maxSize) {
                 const currentSettings = player.getVideoSettings();
@@ -147,11 +147,7 @@ export class GoogToolBox extends ToolBox {
                 player.setVideoSettings(newSettings, false, true);
                 client.sendNewVideoSetting(newSettings);
             }
-        };
-        maximizeButton.addEventListener('click', () => {
-            toggleMaximize();
         });
-        toggleMaximize();
         elements.push(maximize);
         
         if (moreBox) {
