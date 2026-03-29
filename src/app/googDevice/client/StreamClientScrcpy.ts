@@ -35,18 +35,23 @@ interface ClipboardSyncOptions {
     enabled?: boolean;
     checkInterval?: number; // 浏览器剪贴板检查间隔（毫秒）
 }
- 
 class ClipboardSyncManager {
     private static instance: ClipboardSyncManager | null = null;
     
     private streamClient: StreamClientScrcpy;
     private enabled: boolean = false;
-    private checkInterval: number = 1000; // 默认1秒检查一次
+    private checkInterval: number = 2000; // 改为2秒，减少频率
     private intervalId: number | null = null;
+    
+    // 状态管理
     private lastDeviceClipboardText: string = '';
     private lastBrowserClipboardText: string = '';
-    private isSyncingToDevice: boolean = false; // 防止重复同步
+    private lastSyncToDeviceTime: number = 0; // 上次同步到设备的时间
+    private lastSyncToBrowserTime: number = 0; // 上次同步到浏览器的时间
+    private coolingPeriod: number = 3000; // 冷却期3秒
+    private isSyncingToDevice: boolean = false;
     private isSyncingToBrowser: boolean = false;
+    private initialSyncDone: boolean = false; // 是否已完成初始同步
     
     private constructor(streamClient: StreamClientScrcpy) {
         this.streamClient = streamClient;
@@ -59,7 +64,6 @@ class ClipboardSyncManager {
         return ClipboardSyncManager.instance;
     }
     
-    // 启用剪贴板同步
     public async enable(options: ClipboardSyncOptions = {}): Promise<void> {
         if (this.enabled) {
             return;
@@ -73,35 +77,10 @@ class ClipboardSyncManager {
             this.checkInterval = options.checkInterval;
         }
         
-        // 尝试检查权限（可选）
         try {
-            // 检查 navigator.permissions 是否支持
-            if ('permissions' in navigator && 'query' in navigator.permissions) {
-                // 使用类型断言绕过 TypeScript 限制
-                const permissionName: any = 'clipboard-read';
-                const permissionStatus = await navigator.permissions.query({ 
-                    name: permissionName 
-                });
-                
-                if (permissionStatus.state === 'granted') {
-                    await this.initializeSync();
-                } else if (permissionStatus.state === 'prompt') {
-                    // 等待用户授权
-                    await this.initializeSync();
-                } else {
-                    // denied，但仍然尝试初始化
-                    console.warn('[ClipboardSync] 权限被拒绝，尝试初始化');
-                    await this.initializeSync();
-                }
-            } else {
-                // 浏览器不支持 permissions API，直接初始化
-                console.log('[ClipboardSync] 浏览器不支持 permissions API，直接初始化');
-                await this.initializeSync();
-            }
-        } catch (error) {
-            // 捕获所有错误，直接初始化
-            console.warn('[ClipboardSync] 权限检查失败，直接初始化:', error);
             await this.initializeSync();
+        } catch (error) {
+            console.error('[ClipboardSync] 初始化失败', error);
         }
     }
     
@@ -114,15 +93,15 @@ class ClipboardSyncManager {
             console.warn('[ClipboardSync] 初始化读取浏览器剪贴板失败', error);
         }
         
-        // 启动浏览器剪贴板监控
-        this.startBrowserClipboardMonitoring();
+        // 启动浏览器剪贴板监控（延迟启动，避免干扰初始状态）
+        setTimeout(() => {
+            this.startBrowserClipboardMonitoring();
+        }, 1000); // 延迟1秒启动
         
-        // 启动设备剪贴板接收（通过 OnDeviceMessage）
         this.enabled = true;
         console.log('[ClipboardSync] 双向剪贴板同步已启用');
     }
     
-    // 禁用剪贴板同步
     public disable(): void {
         this.enabled = false;
         
@@ -134,9 +113,11 @@ class ClipboardSyncManager {
         console.log('[ClipboardSync] 双向剪贴板同步已禁用');
     }
     
-    // 设备剪贴板 → 浏览器
+    /**
+     * 设备剪贴板 → 浏览器（被动接收，不需要冷却）
+     */
     public async syncFromDeviceToDeviceMessage(message: DeviceMessage): Promise<void> {
-        if (!this.enabled || this.isSyncingToDevice) {
+        if (!this.enabled || this.isSyncingToBrowser) {
             return;
         }
         
@@ -144,115 +125,134 @@ class ClipboardSyncManager {
             const deviceText = message.getText();
             
             // 如果设备剪贴板内容没有变化，跳过
-            if (deviceText === this.lastDeviceClipboardText) {
+            if (deviceText === this.lastDeviceClipboardText || !deviceText) {
                 return;
             }
             
-            // 如果浏览器剪贴板已经有相同内容，跳过（避免循环）
+            // 如果与浏览器剪贴板相同，跳过
             const browserText = await this.readBrowserClipboard();
             if (deviceText === browserText) {
+                this.lastDeviceClipboardText = deviceText; // 更新状态但不写入
                 return;
             }
             
-            this.isSyncingToDevice = true;
+            this.isSyncingToBrowser = true;
             await this.writeBrowserClipboard(deviceText);
             this.lastDeviceClipboardText = deviceText;
+            this.lastSyncToBrowserTime = Date.now();
             console.log('[ClipboardSync] 设备 → 浏览器:', deviceText.substring(0, 50) + (deviceText.length > 50 ? '...' : ''));
             
         } catch (error) {
             console.error('[ClipboardSync] 同步到浏览器失败', error);
         } finally {
-            this.isSyncingToDevice = false;
+            this.isSyncingToBrowser = false;
         }
     }
     
-    // 浏览器剪贴板 → 设备
+    /**
+     * 浏览器剪贴板 → 设备（主动发送，需要冷却和去重）
+     */
     private async syncToDevice(browserText: string): Promise<void> {
-        if (!this.enabled || this.isSyncingToBrowser) {
+        if (!this.enabled || this.isSyncingToDevice) {
+            return;
+        }
+        
+        const now = Date.now();
+        
+        // 如果浏览器剪贴板内容没有变化，跳过
+        if (browserText === this.lastBrowserClipboardText || !browserText) {
+            return;
+        }
+        
+        // 如果与设备剪贴板相同，跳过（避免循环）
+        if (browserText === this.lastDeviceClipboardText) {
+            this.lastBrowserClipboardText = browserText; // 更新状态但不发送
+            return;
+        }
+        
+        // 检查冷却期
+        const timeSinceLastSyncToBrowser = now - this.lastSyncToBrowserTime;
+        if (timeSinceLastSyncToBrowser < this.coolingPeriod) {
+            // 如果刚从设备同步过来，跳过（避免循环）
+            console.log('[ClipboardSync] 冷却期，跳过同步到设备');
+            this.lastBrowserClipboardText = browserText; // 更新状态但不发送
+            return;
+        }
+        
+        // 检查上次同步到设备的时间
+        const timeSinceLastSyncToDevice = now - this.lastSyncToDeviceTime;
+        if (timeSinceLastSyncToDevice < this.coolingPeriod) {
+            // 如果刚发送过，跳过
+            console.log('[ClipboardSync] 刚发送过，跳过同步到设备');
+            this.lastBrowserClipboardText = browserText; // 更新状态但不发送
             return;
         }
         
         try {
-            // 如果浏览器剪贴板内容没有变化，跳过
-            if (browserText === this.lastBrowserClipboardText) {
-                return;
-            }
-            
-            // 如果设备剪贴板已经有相同内容，跳过（避免循环）
-            if (browserText === this.lastDeviceClipboardText) {
-                return;
-            }
-            
-            this.isSyncingToBrowser = true;
+            this.isSyncingToDevice = true;
             await this.writeDeviceClipboard(browserText);
             this.lastBrowserClipboardText = browserText;
+            this.lastSyncToDeviceTime = now;
             console.log('[ClipboardSync] 浏览器 → 设备:', browserText.substring(0, 50) + (browserText.length > 50 ? '...' : ''));
             
         } catch (error) {
             console.error('[ClipboardSync] 同步到设备失败', error);
         } finally {
-            this.isSyncingToBrowser = false;
+            this.isSyncingToDevice = false;
         }
     }
     
-    // 读取浏览器剪贴板
     private async readBrowserClipboard(): Promise<string> {
         try {
             const text = await navigator.clipboard.readText();
             return text || '';
         } catch (error) {
-            // 降级方案：使用隐藏的 textarea
+            // 读取失败，使用降级方案
             return await this.fallbackReadClipboard();
         }
     }
     
-    // 写入浏览器剪贴板
     private async writeBrowserClipboard(text: string): Promise<void> {
         try {
             await navigator.clipboard.writeText(text);
         } catch (error) {
-            // 降级方案
             this.fallbackWriteClipboard(text);
         }
     }
     
-    // 写入设备剪贴板
     private async writeDeviceClipboard(text: string): Promise<void> {
         const command = CommandControlMessage.createSetClipboardCommand(text, false);
         this.streamClient.sendMessage(command);
     }
     
-    // 启动浏览器剪贴板监控
     private startBrowserClipboardMonitoring(): void {
         if (this.intervalId !== null) {
             return;
         }
         
-        // 使用轮询方式监控浏览器剪贴板变化
+        console.log('[ClipboardSync] 启动浏览器剪贴板监控');
         this.intervalId = window.setInterval(async () => {
             try {
                 const currentText = await this.readBrowserClipboard();
-                await this.syncToDevice(currentText);
+                
+                // 只在真正变化时才同步
+                if (currentText !== this.lastBrowserClipboardText) {
+                    await this.syncToDevice(currentText);
+                }
             } catch (error) {
                 // 静默处理错误
+                console.debug('[ClipboardSync] 浏览器剪贴板监控错误:', error);
             }
         }, this.checkInterval);
     }
     
-    // 降级读取方案
     private async fallbackReadClipboard(): Promise<string> {
-        const textArea = document.createElement('textarea');
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-9999px';
-        document.body.appendChild(textArea);
-        textArea.select();
-        const text = textArea.value;
-        document.body.removeChild(textArea);
-        return text;
+        // 降级方案不靠谱，返回空字符串
+        return '';
     }
     
-    // 降级写入方案
     private fallbackWriteClipboard(text: string): void {
+        // 降级方案，使用 document.execCommand
         const textArea = document.createElement('textarea');
         textArea.value = text;
         textArea.style.position = 'fixed';
