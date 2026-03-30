@@ -158,11 +158,11 @@ export class ControlCenter extends BaseControlCenter<GoogDeviceDescriptor> imple
     public async runCommand(command: ControlCenterCommand): Promise<void> {
         const udid = command.getUdid();
         const device = this.getDevice(udid);
-        if (!device) {
+        const type = command.getType();
+        if (!device && type !== ControlCenterCommand.ADB_CONNECT) {  // 允许在设备不存在时执行 ADB_CONNECT 命令
             console.error(`Device with udid:"${udid}" not found`);
             return;
         }
-        const type = command.getType();
         const data = command.getData(); // 获取附加数据
         switch (type) {
             case ControlCenterCommand.KILL_SERVER:
