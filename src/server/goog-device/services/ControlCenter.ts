@@ -234,7 +234,7 @@ export class ControlCenter extends BaseControlCenter<GoogDeviceDescriptor> imple
             case ControlCenterCommand.UPDATE_INTERFACES:
                 await device?.updateInterfaces();
                 return;
-            case ControlCenterCommand。ADB_CONNECT:  // ← 添加这个 case
+            case ControlCenterCommand.ADB_CONNECT:  // ← 添加这个 case
                 const ip = data?.ip;
                 const port = data?.port || 5555;
                 const deviceId = `${ip}:${port}`;
