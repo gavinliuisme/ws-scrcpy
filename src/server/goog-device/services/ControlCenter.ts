@@ -11,11 +11,15 @@ import { ControlCenterCommand } from '../../../common/ControlCenterCommand';
 import * as os from 'os';
 import * as crypto from 'crypto';
 import { DeviceState } from '../../../common/DeviceState';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class ControlCenter extends BaseControlCenter<GoogDeviceDescriptor> implements Service {
     private static readonly defaultWaitAfterError = 1000;
     private static instance?: ControlCenter;
 
+    private static readonly ADB_DEVICES_FILE = 'adb-devices.txt';
+    
     private initialized = false;
     private client: AdbKitClient = AdbExtended.createClient();
     private tracker?: Tracker;
@@ -25,6 +29,62 @@ export class ControlCenter extends BaseControlCenter<GoogDeviceDescriptor> imple
     private descriptors: Map<string, GoogDeviceDescriptor> = new Map();
     private readonly id: string;
 
+   // 获取设备列表文件的完整路径
+    private getDevicesFilePath(): string {
+        return path.resolve(process.cwd(), ControlCenter.ADB_DEVICES_FILE);
+    }
+ 
+    // 读取已有的设备列表
+    private readDeviceList(): string[] {
+        const filePath = this.getDevicesFilePath();
+        try {
+            if (fs.existsSync(filePath)) {
+                const content = fs.readFileSync(filePath, 'utf-8');
+                return content
+                    .split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0);
+            }
+        } catch (error) {
+            console.error(`Error reading device list: ${error}`);
+        }
+        return [];
+    }
+ 
+    // 写入设备列表（去重）
+    private writeDeviceList(devices: string[]): void {
+        const filePath = this.getDevicesFilePath();
+        try {
+            // 去重并过滤空行
+            const uniqueDevices = [...new Set(devices.filter(d => d.length > 0))];
+            const content = uniqueDevices.join('\n') + '\n';
+            fs.writeFileSync(filePath, content, 'utf-8');
+            console.log(`Device list saved to ${filePath}`);
+        } catch (error) {
+            console.error(`Error writing device list: ${error}`);
+        }
+    }
+ 
+    // 添加新设备到列表
+    private addDeviceToList(deviceId: string): void {
+        if (!deviceId) {
+            return;
+        }
+        
+        const currentList = this.readDeviceList();
+        
+        // 检查是否已存在（去重）
+        if (currentList.includes(deviceId)) {
+            console.log(`Device ${deviceId} already exists in the list`);
+            return;
+        }
+        
+        // 添加新设备并写入文件
+        currentList.push(deviceId);
+        this.writeDeviceList(currentList);
+        console.log(`Device ${deviceId} added to the list`);
+    }
+ 
     protected constructor() {
         super();
         const idString = `goog|${os.hostname()}|${os.uptime()}`;
@@ -174,21 +234,42 @@ export class ControlCenter extends BaseControlCenter<GoogDeviceDescriptor> imple
             case ControlCenterCommand.UPDATE_INTERFACES:
                 await device?.updateInterfaces();
                 return;
-            case ControlCenterCommand.ADB_CONNECT:  // ← 添加这个 case
+            case ControlCenterCommand。ADB_CONNECT:  // ← 添加这个 case
                 const ip = data?.ip;
                 const port = data?.port || 5555;
+                const deviceId = `${ip}:${port}`;
+                
+                // 检查设备是否已经存在
+                const existingDevice = this.deviceMap.get(deviceId);
+                if (existingDevice) {
+                    console.log(`Device ${deviceId} is already connected`);
+                    // 即使已连接，也添加到列表中（确保持久化）
+                    this.addDeviceToList(deviceId);
+                    return;
+                }
+                
                 if (!ip) {
                     console.error('IP address is required for ADB connect');
                     return;
                 }
                 try {
-                    await this.client.connect(`${ip}:${port}`);
+                    // 尝试两种连接方式
+                    let connected = false;
+                    try {
+                        await this.client.connect(ip, port);
+                    } catch (err) {
+                        // 如果两个参数方式失败，尝试连接字符串方式
+                        await this.client.connect(`${ip}:${port}`);
+                    }
+                    connected = true;
                     console.log(`Successfully connected to ${ip}:${port}`);
+                    
+                    // 连接成功后，添加到设备列表文件
+                    this.addDeviceToList(deviceId);
                 } catch (error) {
                     console.error(`Failed to connect to ${ip}:${port}`, error);
                     throw error;
                 }
-                return;
             default:
                 throw new Error(`Unsupported command: "${type}"`);
         }
