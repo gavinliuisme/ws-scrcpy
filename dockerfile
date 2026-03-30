@@ -1,6 +1,6 @@
 FROM node:20-slim
  
-MAINTAINER bygavin <bygavin>
+LABEL maintainer="bygavin <bygavin>"
  
 ENV LANG C.UTF-8
 WORKDIR /ws-scrcpy

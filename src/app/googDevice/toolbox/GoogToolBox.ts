@@ -131,7 +131,7 @@ export class GoogToolBox extends ToolBox {
             
             return button;
         };
-         
+        
         // 靠左靠右
         const alignRight = createAlignButton();
         elements.push(alignRight);
