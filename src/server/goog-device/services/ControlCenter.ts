@@ -163,6 +163,7 @@ export class ControlCenter extends BaseControlCenter<GoogDeviceDescriptor> imple
             return;
         }
         const type = command.getType();
+        const data = command.getData(); // 获取附加数据
         switch (type) {
             case ControlCenterCommand.KILL_SERVER:
                 await device.killServer(command.getPid());
@@ -172,6 +173,21 @@ export class ControlCenter extends BaseControlCenter<GoogDeviceDescriptor> imple
                 return;
             case ControlCenterCommand.UPDATE_INTERFACES:
                 await device.updateInterfaces();
+                return;
+            case ControlCenterCommand.ADB_CONNECT:  // ← 添加这个 case
+                const ip = data?.ip;
+                const port = data?.port || 5555;
+                if (!ip) {
+                    console.error('IP address is required for ADB connect');
+                    return;
+                }
+                try {
+                    await this.client.connect(`${ip}:${port}`);
+                    console.log(`Successfully connected to ${ip}:${port}`);
+                } catch (error) {
+                    console.error(`Failed to connect to ${ip}:${port}`, error);
+                    throw error;
+                }
                 return;
             default:
                 throw new Error(`Unsupported command: "${type}"`);

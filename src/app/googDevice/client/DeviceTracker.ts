@@ -140,6 +140,22 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
         }
     };
 
+    private sendAdbConnectCommand(ip: string, port: number): void {
+        const data: Message = {
+            id: this.getNextId(),
+            type: ControlCenterCommand.ADB_CONNECT,
+            data: {
+                ip,
+                port,
+            },
+        };
+        if (this.ws && this.ws.readyState === this.ws.OPEN) {
+            this.ws.send(JSON.stringify(data));
+        } else {
+            console.error('WebSocket is not connected');
+        }
+    }
+
     private static getLocalStorageKey(udid: string): string {
         return `device_list::${udid}::interface`;
     }
@@ -249,9 +265,29 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
                         const date = new Date(timestamp);
                         actionButton.title = `Last update on ${date.toLocaleDateString()} at ${date.toLocaleTimeString()}`;
                     } else {
-                        actionButton.title = `Not active`;
+                        actionButton.title = 'Not active';
                     }
                     actionButton.appendChild(SvgImage.create(SvgImage.Icon.OFFLINE));
+                    
+                    // 添加 ADB 重连按钮
+                    const reconnectButton = document.createElement('button');
+                    reconnectButton.className = 'action-button reconnect-button';
+                    reconnectButton.title = 'Reconnect via ADB';
+                    reconnectButton.setAttribute(Attribute.UDID, device.udid);
+                    reconnectButton.setAttribute(Attribute.COMMAND, ControlCenterCommand.ADB_CONNECT);
+                    
+                    // 从 udid 解析 IP（假设格式为 ip:port）
+                    const udidParts = device.udid.split(':');
+                    if (udidParts.length > 0) {
+                        const ip = udidParts[0];
+                        const port = udidParts[1];
+                        reconnectButton.onclick = () => {
+                            this.sendAdbConnectCommand(ip, +port);
+                        };
+                        reconnectButton.appendChild(SvgImage.create(SvgImage.Icon.REFRESH));
+                        reconnectButton.appendChild(document.createTextNode('Reconnect'));
+                        td.appendChild(reconnectButton);
+                    }
                 }
                 const span = document.createElement('span');
                 span.innerText = value;
@@ -359,4 +395,76 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
             }
         }
     }
+
+    // 重写父类的 buildDeviceTable 方法
+    protected buildDeviceTable(): void {
+        // 先调用父类方法构建设备表格
+        super.buildDeviceTable();
+        
+        // 在 tracker block 中添加连接区域
+        this.addGlobalConnectArea();
+    }
+    
+    // 添加全局连接区域方法
+    private addGlobalConnectArea(): void {
+        const existingArea = document.getElementById('global_connect_area');
+        if (existingArea) {
+            return; // 已存在则跳过
+        }
+    
+        // 使用 elementId 查找 tracker block
+        const trackerBlock = document.getElementById(this.elementId);
+        if (!trackerBlock) {
+            return; // tracker block 不存在，跳过
+        }
+    
+        const connectArea = document.createElement('div');
+        connectArea.id = 'global_connect_area';
+        connectArea.className = 'global-connect-area';
+    
+        const title = document.createElement('div');
+        title.className = 'connect-area-title';
+        title.innerText = 'Connect New Device';
+    
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'connect-input-group';
+    
+        const ipInput = document.createElement('input');
+        ipInput.type = 'text';
+        ipInput.id = 'adb_connect_ip';
+        ipInput.placeholder = 'IP Address (e.g., 192.168.1.100)';
+        ipInput.className = 'connect-input';
+    
+        const portInput = document.createElement('input');
+        portInput.type = 'number';
+        portInput.id = 'adb_connect_port';
+        portInput.placeholder = 'Port (default: 5555)';
+        portInput.value = '5555';
+        portInput.className = 'connect-input connect-port-input';
+    
+        const connectButton = document.createElement('button');
+        connectButton.className = 'action-button connect-new-button active';
+        connectButton.innerText = 'Connect';
+        connectButton.onclick = () => {
+            const ip = ipInput.value.trim();
+            const port = parseInt(portInput.value, 10);
+            if (ip && !isNaN(port)) {
+                this.sendAdbConnectCommand(ip, port);
+                ipInput.value = ''; // 清空输入框
+            } else {
+                alert('Please enter a valid IP address');
+            }
+        };
+    
+        inputGroup.appendChild(ipInput);
+        inputGroup.appendChild(portInput);
+        inputGroup.appendChild(connectButton);
+    
+        connectArea.appendChild(title);
+        connectArea.appendChild(inputGroup);
+    
+        // 在 tracker block 的第一个子元素之后插入（tracker-name 是第一个子元素）
+        trackerBlock.insertBefore(connectArea, trackerBlock.children[1] || null);
+    }
+ 
 }
