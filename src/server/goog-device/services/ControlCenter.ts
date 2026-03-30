@@ -166,13 +166,13 @@ export class ControlCenter extends BaseControlCenter<GoogDeviceDescriptor> imple
         const data = command.getData(); // 获取附加数据
         switch (type) {
             case ControlCenterCommand.KILL_SERVER:
-                await device.killServer(command.getPid());
+                await device?.killServer(command.getPid());
                 return;
             case ControlCenterCommand.START_SERVER:
-                await device.startServer();
+                await device?.startServer();
                 return;
             case ControlCenterCommand.UPDATE_INTERFACES:
-                await device.updateInterfaces();
+                await device?.updateInterfaces();
                 return;
             case ControlCenterCommand.ADB_CONNECT:  // ← 添加这个 case
                 const ip = data?.ip;
