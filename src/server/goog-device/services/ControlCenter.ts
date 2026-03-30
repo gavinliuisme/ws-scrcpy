@@ -253,18 +253,13 @@ export class ControlCenter extends BaseControlCenter<GoogDeviceDescriptor> imple
                     return;
                 }
                 try {
-                    // 尝试两种连接方式
-                    let connected = false;
                     try {
                         await this.client.connect(ip, port);
                     } catch (err) {
                         // 如果两个参数方式失败，尝试连接字符串方式
                         await this.client.connect(`${ip}:${port}`);
                     }
-                    connected = true;
-                    console.log(`Successfully connected to ${ip}:${port}`);
-                    
-                    // 连接成功后，添加到设备列表文件
+                    console.log(`Successfully connected to ${ip}:${port}`);         
                     this.addDeviceToList(deviceId);
                 } catch (error) {
                     console.error(`Failed to connect to ${ip}:${port}`, error);
