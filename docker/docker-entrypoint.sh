@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
  
-echo "Starting ws-scrcpy(2026-3-31 10:35:00)..."
+echo "Starting ws-scrcpy..."
  
 # 启动 ADB server
 adb start-server
