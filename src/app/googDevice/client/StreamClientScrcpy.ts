@@ -250,6 +250,7 @@ export class StreamClientScrcpy
         if (!this.joinedStream) {
             this.joinedStream = true;
         }
+        DeviceTracker.getAutoPowerOff() &&
         this.sendMessage(CommandControlMessage.createSetScreenPowerModeCommand(false));
     };
 
