@@ -36,6 +36,8 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
     private static instancesByUrl: Map<string, DeviceTracker> = new Map();
     protected static tools: Set<Tool> = new Set();
     protected tableId = 'goog_device_list';
+    private static readonly STORAGE_AUTO_POWER_OFF = 'ws-scrcpy_auto_power_off';
+    private static readonly STORAGE_AUTO_MAXIMIZE = 'ws-scrcpy_auto_maximize';
 
     public static start(hostItem: HostItem): DeviceTracker {
         const url = this.buildUrlForTracker(hostItem).toString();
@@ -460,11 +462,82 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
         inputGroup.appendChild(portInput);
         inputGroup.appendChild(connectButton);
     
+        // 添加设置区域
+        const settingsArea = this.createSettingsArea();
         connectArea.appendChild(title);
         connectArea.appendChild(inputGroup);
+        connectArea.appendChild(settingsArea);
     
         // 在 tracker block 的第一个子元素之后插入（tracker-name 是第一个子元素）
         trackerBlock.insertBefore(connectArea, trackerBlock.children[1] || null);
     }
+        // 创建设置区域
+    private createSettingsArea(): HTMLElement {
+        const settingsArea = document.createElement('div');
+        settingsArea.className = 'global-settings-area';
  
+        const settingsTitle = document.createElement('div');
+        settingsTitle.className = 'settings-area-title';
+        settingsTitle.innerText = 'Auto Settings';
+ 
+        const savedAutoPowerOff = localStorage.getItem(DeviceTracker.STORAGE_AUTO_POWER_OFF);
+        const savedAutoMaximize = localStorage.getItem(DeviceTracker.STORAGE_AUTO_MAXIMIZE);
+ 
+        const autoPowerOffLabel = document.createElement('label');
+        autoPowerOffLabel.className = 'setting-checkbox-label';
+        
+        const autoPowerOffCheck = document.createElement('input');
+        autoPowerOffCheck.type = 'checkbox';
+        autoPowerOffCheck.id = 'auto_power_off';
+        autoPowerOffCheck.checked = savedAutoPowerOff === 'true';
+        
+        autoPowerOffCheck.onchange = () => {
+            localStorage.setItem(DeviceTracker.STORAGE_AUTO_POWER_OFF, autoPowerOffCheck.checked.toString());
+            console.log(`Auto Power Off: ${autoPowerOffCheck.checked}`);
+        };
+ 
+        const autoPowerOffSpan = document.createElement('span');
+        autoPowerOffSpan.innerText = 'Auto Power Off';
+ 
+        autoPowerOffLabel.appendChild(autoPowerOffCheck);
+        autoPowerOffLabel.appendChild(autoPowerOffSpan);
+ 
+        const autoMaximizeLabel = document.createElement('label');
+        autoMaximizeLabel.className = 'setting-checkbox-label';
+        
+        const autoMaximizeCheck = document.createElement('input');
+        autoMaximizeCheck.type = 'checkbox';
+        autoMaximizeCheck.id = 'auto_maximize';
+        autoMaximizeCheck.checked = savedAutoMaximize === 'true';
+        
+        autoMaximizeCheck.onchange = () => {
+            localStorage.setItem(DeviceTracker.STORAGE_AUTO_MAXIMIZE, autoMaximizeCheck.checked.toString());
+            console.log(`Auto Maximize: ${autoMaximizeCheck.checked}`);
+        };
+ 
+        const autoMaximizeSpan = document.createElement('span');
+        autoMaximizeSpan.innerText = 'Auto Maximize';
+ 
+        autoMaximizeLabel.appendChild(autoMaximizeCheck);
+        autoMaximizeLabel.appendChild(autoMaximizeSpan);
+ 
+        const checkboxesDiv = document.createElement('div');
+        checkboxesDiv.className = 'settings-checkboxes';
+        checkboxesDiv.appendChild(autoPowerOffLabel);
+        checkboxesDiv.appendChild(autoMaximizeLabel);
+ 
+        settingsArea.appendChild(settingsTitle);
+        settingsArea.appendChild(checkboxesDiv);
+ 
+        return settingsArea;
+    }
+ 
+    // 静态方法：获取自动设置值
+    public static getAutoPowerOff(): boolean {
+        return localStorage.getItem(DeviceTracker.STORAGE_AUTO_POWER_OFF) === 'true';
+    }
+ 
+    public static getAutoMaximize(): boolean {
+        return localStorage.getItem(DeviceTracker.STORAGE_AUTO_MAXIMIZE) === 'true';
+    }
 }
