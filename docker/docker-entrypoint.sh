@@ -27,8 +27,8 @@ fi
 if [ -f /ws-scrcpy/adb-devices.txt ]; then
     echo "Connecting devices from file..."
     while IFS= read -r device || [ -n "$device" ]; do
-        # 跳过空行和注释
-        [[ "$device" =~ ^[[:space:]]*#.*$ ]] && continue
+        # 跳过空行和注释 (使用 grep 替代 Bash 专属的 [[ =~ ]] )
+        echo "$device" | grep -q '^[[:space:]]*#' && continue
         [ -z "$(echo "$device" | tr -d '[:space:]')" ] && continue
         
         echo "Connecting to $device..."
