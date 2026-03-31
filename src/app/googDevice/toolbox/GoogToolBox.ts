@@ -175,7 +175,6 @@ export class GoogToolBox extends ToolBox {
             Object.assign(newSettings, { bounds: finalSize });
             player.setVideoSettings(newSettings, false, true);
             client.sendNewVideoSetting(newSettings);
-            console.log('maxsize:',maxSize,'newSettings',newSettings);
         };
         
         // ✅ 延迟初始化，同时同步 checkbox 状态
