@@ -420,9 +420,9 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
             return; // tracker block 不存在，跳过
         }
     
-        const connectArea = document.createElement('div');
-        connectArea.id = 'global_connect_area';
-        connectArea.className = 'global-connect-area';
+        const globalArea = document.createElement('div');
+        globalArea.id = 'global_area';
+        globalArea.className = 'global-area';
     
         const title = document.createElement('div');
         title.className = 'connect-area-title';
@@ -460,16 +460,20 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
     
         inputGroup.appendChild(ipInput);
         inputGroup.appendChild(portInput);
-        inputGroup.appendChild(connectButton);
-    
-        // 添加设置区域
-        const settingsArea = this.createSettingsArea();
+        inputGroup.appendChild(connectButton);    
+        
+        const connectArea = document.createElement('div');
         connectArea.appendChild(title);
         connectArea.appendChild(inputGroup);
-        connectArea.appendChild(settingsArea);
+        
+        // 添加设置区域
+        const settingsArea = this.createSettingsArea();
+        
+        globalArea.appendChild(connectArea);
+        globalArea.appendChild(settingsArea);
     
         // 在 tracker block 的第一个子元素之后插入（tracker-name 是第一个子元素）
-        trackerBlock.insertBefore(connectArea, trackerBlock.children[1] || null);
+        trackerBlock.insertBefore(globalArea, trackerBlock.children[1] || null);
     }
         // 创建设置区域
     private createSettingsArea(): HTMLElement {
