@@ -10,6 +10,7 @@ import { BasePlayer } from '../../player/BasePlayer';
 import { CommandControlMessage } from '../../controlMessage/CommandControlMessage';
 import VideoSettings from '../../VideoSettings';
 import Size from '../../Size';
+import { DeviceTracker } from '../client/DeviceTracker';
 
 const BUTTONS = [
     {
@@ -96,7 +97,7 @@ export class GoogToolBox extends ToolBox {
         });
         elements.push(keyboard);
         
-        const screenpower = new ToolBoxCheckbox('Screen Power', SvgImage.Icon.SCREENPOWER);
+        const screenpower = new ToolBoxCheckbox('Screen Power', SvgImage.Icon.SCREENPOWER,undefined,undefined,!DeviceTracker.getAutoPowerOff());
         screenpower.addEventListener('click', (_, el) => {
             client.sendMessage(CommandControlMessage.createSetScreenPowerModeCommand(el.getElement().checked));
         });
@@ -138,7 +139,7 @@ export class GoogToolBox extends ToolBox {
 
         // 最大化
         const maximizeKey = `maximize_video_${udid}_${displayId}`;
-        let isAutoFull = localStorage.getItem(maximizeKey) === 'true';
+        let isAutoFull = DeviceTracker.getAutoMaximize();
         const maximize = new ToolBoxCheckbox(
             'Maximize video',
             SvgImage.Icon.ALIGNRIGHT,
@@ -186,7 +187,6 @@ export class GoogToolBox extends ToolBox {
         
         maximize.addEventListener('click', (_, el) => {
             isAutoFull = (el.getElement() as HTMLInputElement).checked;
-            localStorage.setItem(maximizeKey, String(isAutoFull));
             if (isAutoFull) {
                 applyMaximize();
             }
