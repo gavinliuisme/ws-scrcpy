@@ -239,11 +239,9 @@ export class ControlCenter extends BaseControlCenter<GoogDeviceDescriptor> imple
                 const port = data?.port || 5555;
                 const deviceId = `${ip}:${port}`;
                 
-                // 检查设备是否已经存在
+                //新添加设备才检查设备是否已经存在
                 const existingDevice = this.deviceMap.get(deviceId);
-                if (existingDevice) {
-                    console.log(`Device ${deviceId} is already connected`);
-                    // 即使已连接，也添加到列表中（确保持久化）
+                if (existingDevice && !device) {
                     this.addDeviceToList(deviceId);
                     return;
                 }
