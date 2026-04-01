@@ -98,8 +98,19 @@ export class GoogToolBox extends ToolBox {
         elements.push(keyboard);
         
         const screenpower = new ToolBoxCheckbox('Screen Power', SvgImage.Icon.SCREENPOWER,undefined,undefined,!DeviceTracker.getAutoPowerOff());
-        screenpower.addEventListener('click', (_, el) => {
-            client.sendMessage(CommandControlMessage.createSetScreenPowerModeCommand(el.getElement().checked));
+        screenpower.addEventListener('click', (_, el) => {   
+            const screenPowerOn = el.getElement().checked;            
+            // 1. 设置屏幕电源模式
+            client.sendMessage(CommandControlMessage.createSetScreenPowerModeCommand(screenPowerOn));            
+            // 2. 如果是打开屏幕，发送 Menu 键唤醒设备（不锁屏）
+            if (screenPowerOn) {
+                const menuDown = new KeyCodeControlMessage(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MENU, 0, 0);
+                const menuUp = new KeyCodeControlMessage(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MENU, 0, 0);                
+                client.sendMessage(menuDown);
+                setTimeout(() => {
+                    client.sendMessage(menuUp);
+                }, 50);
+            }
         });
         elements.push(screenpower);
         
