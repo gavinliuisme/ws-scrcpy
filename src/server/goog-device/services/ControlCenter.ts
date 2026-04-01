@@ -237,14 +237,8 @@ export class ControlCenter extends BaseControlCenter<GoogDeviceDescriptor> imple
             case ControlCenterCommand.ADB_CONNECT:  // ← 添加这个 case
                 const ip = data?.ip;
                 const port = data?.port || 5555;
-                const deviceId = `${ip}:${port}`;
-                
-                //新添加设备才检查设备是否已经存在
-                const existingDevice = this.deviceMap.get(deviceId);
-                if (existingDevice && !device) {
-                    this.addDeviceToList(deviceId);
-                    return;
-                }
+                const deviceId = `${ip}:${port}`;                
+                this.addDeviceToList(deviceId);
                 
                 if (!ip) {
                     console.error('IP address is required for ADB connect');
@@ -257,8 +251,7 @@ export class ControlCenter extends BaseControlCenter<GoogDeviceDescriptor> imple
                         // 如果两个参数方式失败，尝试连接字符串方式
                         await this.client.connect(`${ip}:${port}`);
                     }
-                    console.log(`Successfully connected to ${ip}:${port}`);         
-                    this.addDeviceToList(deviceId);
+                    console.log(`Successfully connected to ${ip}:${port}`);
                 } catch (error) {
                     console.error(`Failed to connect to ${ip}:${port}`, error);
                     throw error;
